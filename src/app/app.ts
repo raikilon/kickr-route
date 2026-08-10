@@ -1,3 +1,4 @@
+import { DOCUMENT } from '@angular/common';
 import { Component, computed, effect, inject } from '@angular/core';
 import { MatDialog, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { ElevationProfile } from './components/elevation-profile/elevation-profile';
@@ -23,9 +24,12 @@ import { Route } from './core/route/route';
   styleUrl: './app.scss',
 })
 export class App {
+  private readonly document = inject(DOCUMENT);
+  private readonly dialog = inject(MatDialog);
+
   protected readonly ride = inject(RideService);
   protected readonly routeLocked = computed(() => !this.ride.canChangeRoute());
-  private readonly dialog = inject(MatDialog);
+  protected readonly demoEnabled = this.isDemoRoute();
   private summaryDialog: MatDialogRef<RideSummary> | null = null;
 
   constructor() {
@@ -38,6 +42,11 @@ export class App {
 
   protected clearRoute(): void {
     this.ride.clearRoute();
+  }
+
+  private isDemoRoute(): boolean {
+    const pathname = this.document.location.pathname;
+    return pathname.endsWith('/test') || pathname.endsWith('/test/');
   }
 
   private openRideSummary(): void {

@@ -1,4 +1,4 @@
-import { Component, computed, inject } from '@angular/core';
+import { Component, computed, inject, input } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
 import { RideService } from '../../core/ride/ride.service';
@@ -12,8 +12,16 @@ import { TrainerService } from '../../core/trainer/trainer.service';
   styleUrl: './trainer-controls.scss',
 })
 export class TrainerControls {
+  readonly demoEnabled = input(false);
+
   protected readonly trainer = inject(TrainerService);
   protected readonly ride = inject(RideService);
+  protected readonly bluetoothUnavailableMessage = computed(() => {
+    if (this.demoEnabled()) {
+      return 'Web Bluetooth is unavailable. Use Chrome or Edge on a compatible platform over HTTPS, or try demo mode.';
+    }
+    return 'Web Bluetooth is unavailable. Use Chrome or Edge on a compatible platform over HTTPS.';
+  });
   protected readonly connectionLabel = computed(() => {
     switch (this.trainer.connectionState()) {
       case 'connecting':

@@ -42,6 +42,11 @@ jobs:
       - name: Build production application
         run: npm run build
 
+      - name: Add demo test entry point
+        run: |
+          mkdir -p dist/kickr-route/browser/test
+          cp dist/kickr-route/browser/index.html dist/kickr-route/browser/test/index.html
+
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
 

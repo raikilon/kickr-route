@@ -18,15 +18,17 @@
       >
         Connect trainer
       </button>
-      <button
-        mat-stroked-button
-        class="demo-action"
-        type="button"
-        [disabled]="trainer.connectionState() === 'connecting'"
-        (click)="useDemo()"
-      >
-        Use demo trainer
-      </button>
+      @if (demoEnabled()) {
+        <button
+          mat-stroked-button
+          class="demo-action"
+          type="button"
+          [disabled]="trainer.connectionState() === 'connecting'"
+          (click)="useDemo()"
+        >
+          Use demo trainer
+        </button>
+      }
     </div>
   }
   @if (trainer.connectionState() === 'connected') {
@@ -146,8 +148,7 @@
 
   @if (!trainer.bluetoothSupported) {
     <p class="status-message" role="note">
-      Web Bluetooth is unavailable. Use Chrome or Edge on a compatible platform over HTTPS, or try
-      demo mode.
+      {{ bluetoothUnavailableMessage() }}
     </p>
   }
   @if (trainer.error(); as message) {

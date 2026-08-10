@@ -20,7 +20,7 @@
       (routeLoaded)="loadRoute($event)"
       (routeCleared)="clearRoute()"
     />
-    <app-trainer-controls />
+    <app-trainer-controls [demoEnabled]="demoEnabled" />
   </div>
 
   @if (ride.route(); as route) {
