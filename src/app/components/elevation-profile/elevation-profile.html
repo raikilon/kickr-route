@@ -1,0 +1,113 @@
+<section class="profile" aria-labelledby="elevation-title">
+  <header>
+    <div>
+      <p class="eyebrow">Elevation</p>
+      <h2 id="elevation-title">Route profile</h2>
+    </div>
+    <div class="zoom-controls" aria-label="Elevation profile zoom">
+      <div class="zoom-stepper">
+        <button
+          class="zoom-button"
+          type="button"
+          aria-label="Zoom elevation profile out"
+          [disabled]="!canZoomOut()"
+          (click)="zoomOut()"
+        >
+          −
+        </button>
+        <span class="zoom-level" aria-live="polite">{{ zoomLabel() }}</span>
+        <button
+          class="zoom-button"
+          type="button"
+          aria-label="Zoom elevation profile in"
+          [disabled]="!canZoomIn()"
+          (click)="zoomIn()"
+        >
+          +
+        </button>
+        <button
+          class="zoom-button full-route-button"
+          type="button"
+          aria-label="Show full elevation profile"
+          [disabled]="!canZoomOut()"
+          (click)="showFullRoute()"
+        >
+          <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false">
+            <path d="M8 3H3v5M12 3h5v5M8 17H3v-5M12 17h5v-5" />
+          </svg>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  @if (profile(); as data) {
+    <svg
+      class="elevation-chart"
+      viewBox="0 0 1000 320"
+      role="img"
+      aria-label="Route elevation profile and rider position"
+    >
+      <defs>
+        <clipPath id="profileCompleted">
+          <rect x="0" y="0" [attr.width]="data.markerX" height="320" />
+        </clipPath>
+        <clipPath id="profileUpcoming">
+          <rect [attr.x]="data.markerX" y="0" [attr.width]="1000 - data.markerX" height="320" />
+        </clipPath>
+      </defs>
+      @for (guide of data.distanceGuides; track guide.distanceMeters) {
+        <line class="distance-guide" [attr.x1]="guide.x" y1="20" [attr.x2]="guide.x" y2="272" />
+      }
+      <line class="grid" x1="0" y1="272" x2="1000" y2="272" />
+      @for (segment of data.paths; track $index) {
+        <path
+          class="profile-line completed-terrain"
+          [attr.d]="segment.path"
+          [attr.stroke]="segment.difficulty.color"
+          clip-path="url(#profileCompleted)"
+        />
+        <path
+          class="profile-line upcoming-terrain"
+          [attr.d]="segment.path"
+          [attr.stroke]="segment.difficulty.color"
+          clip-path="url(#profileUpcoming)"
+        />
+      }
+      @for (path of data.unknownPaths; track path) {
+        <path class="profile-line unknown-terrain" [attr.d]="path" />
+      }
+      <line class="current" [attr.x1]="data.markerX" y1="12" [attr.x2]="data.markerX" y2="272" />
+      @if (data.markerY !== null) {
+        <circle class="rider" [attr.cx]="data.markerX" [attr.cy]="data.markerY" r="8" />
+      }
+      @for (tick of data.distanceTicks; track tick.distanceMeters) {
+        <line class="distance-tick" [attr.x1]="tick.x" y1="272" [attr.x2]="tick.x" y2="280" />
+        <text class="distance-label" [attr.x]="tick.labelX" y="307">{{ tick.label }}</text>
+      }
+      @if (data.maximumElevationMeters !== null) {
+        <text x="8" y="18">{{ data.maximumElevationMeters.toFixed(0) }} m</text>
+      }
+      @if (data.minimumElevationMeters !== null) {
+        <text x="8" y="262">{{ data.minimumElevationMeters.toFixed(0) }} m</text>
+      }
+      @if (data.paths.length === 0) {
+        <text class="section-message" x="500" y="105">No elevation in this section</text>
+      }
+    </svg>
+    <ul class="legend" aria-label="Gradient difficulty legend">
+      @for (difficulty of data.legend; track difficulty.label) {
+        <li>
+          <span [style.background]="difficulty.color"></span>
+          <b>{{ difficulty.label }}</b>
+          <small>{{ difficulty.range }}</small>
+        </li>
+      }
+    </ul>
+  }
+  @if (!profile()) {
+    <div class="empty">
+      <strong>No elevation data</strong>
+      <span>The route remains rideable with a neutral trainer grade.</span>
+    </div>
+  }
+</section>

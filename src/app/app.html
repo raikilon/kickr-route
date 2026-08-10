@@ -1,0 +1,75 @@
+<header class="site-header">
+  <a class="brand" href="./" aria-label="kickr-route home">
+    <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+    <h1 class="brand-title">kickr<span>/route</span></h1>
+  </a>
+  <div class="local-badge">
+    <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+      <rect x="3" y="7" width="10" height="7" rx="2" />
+      <path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2" />
+    </svg>
+    Browser only · no uploads
+  </div>
+</header>
+
+<main>
+  <div class="setup-grid">
+    <app-route-loader
+      [currentRoute]="ride.route()"
+      [disabled]="routeLocked()"
+      (routeLoaded)="loadRoute($event)"
+      (routeCleared)="clearRoute()"
+    />
+    <app-trainer-controls />
+  </div>
+
+  @if (ride.route(); as route) {
+    <section class="route-header" aria-label="Loaded route details">
+      <div>
+        <span class="route-index">ACTIVE ROUTE</span>
+        <h2>{{ route.name }}</h2>
+      </div>
+      <dl>
+        <div>
+          <dt>Distance</dt>
+          <dd>{{ (route.totalDistanceMeters / 1000).toFixed(1) }} km</dd>
+        </div>
+        <div>
+          <dt>Ascent</dt>
+          <dd>{{ route.totalAscentMeters.toFixed(0) }} m</dd>
+        </div>
+        <div>
+          <dt>Points</dt>
+          <dd>{{ route.points.length }}</dd>
+        </div>
+      </dl>
+    </section>
+
+    @for (warning of route.warnings; track warning) {
+      <p class="route-warning" role="status">{{ warning }}</p>
+    }
+
+    <app-ride-dashboard />
+
+    <section class="visuals" aria-label="Route progress visualizations">
+      <app-route-map
+        [route]="route"
+        [distanceMeters]="ride.distanceMeters()"
+        [position]="ride.position()"
+      />
+      <app-elevation-profile [route]="route" [distanceMeters]="ride.distanceMeters()" />
+    </section>
+  }
+  @if (!ride.route()) {
+    <section class="empty-state">
+      <div class="contours" aria-hidden="true"></div>
+      <span>Start here</span>
+      <h2>Choose a GPX route</h2>
+      <p>Track segments and route points are supported. Elevation is optional.</p>
+    </section>
+  }
+</main>
+
+<footer>
+  <span>kickr-route v1.0.0</span>
+</footer>

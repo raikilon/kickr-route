@@ -1,0 +1,110 @@
+@use '@angular/material' as mat;
+
+:root {
+  @include mat.theme(
+    (
+      color: (
+        theme-type: dark,
+        primary: mat.$chartreuse-palette,
+        tertiary: mat.$azure-palette,
+      ),
+      typography: Inter,
+      density: -1,
+    )
+  );
+}
+
+:root {
+  --background: #090d10;
+  --panel: #11171c;
+  --panel-raised: #161e24;
+  --line: #263038;
+  --line-bright: #3a4650;
+  --text: #f0f5f2;
+  --muted: #8d9aa2;
+  --accent: #beff2a;
+  --blue: #24b8ff;
+  --warning: #ffc857;
+  --danger: #ff6577;
+  --radius: 12px;
+  --font-display: Inter, 'Segoe UI', Arial, sans-serif;
+  --font-mono: 'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
+  color-scheme: dark;
+  font-family: var(--font-display);
+  font-synthesis: none;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  min-width: 320px;
+  background: var(--background);
+  scroll-behavior: smooth;
+}
+
+body {
+  min-height: 100vh;
+  margin: 0;
+  color: var(--text);
+  background:
+    radial-gradient(circle at 82% 6%, rgb(36 184 255 / 7%), transparent 25rem),
+    radial-gradient(circle at 12% 28%, rgb(190 255 42 / 4%), transparent 24rem), var(--background);
+}
+
+button,
+input {
+  font: inherit;
+}
+
+button:focus-visible,
+a:focus-visible,
+label:focus-within {
+  outline: 3px solid rgb(36 184 255 / 65%);
+  outline-offset: 3px;
+}
+
+.setup-card {
+  height: 100%;
+  min-height: 172px;
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 1rem 1.5rem;
+  align-items: center;
+  padding: 1.5rem;
+  background: var(--panel) !important;
+  border-color: var(--line) !important;
+  border-radius: var(--radius) !important;
+}
+
+.eyebrow {
+  margin: 0 0 0.6rem;
+  color: var(--eyebrow-color, var(--accent));
+  font: 700 0.72rem/1 var(--font-mono);
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+}
+
+.status-message {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: var(--warning);
+  font-size: 0.82rem;
+}
+
+.status-message.error {
+  color: var(--danger);
+}
+
+.ride-summary-dialog .mat-mdc-dialog-surface {
+  overflow: hidden;
+  background: var(--panel-raised);
+  border: 1px solid var(--line-bright);
+  border-radius: calc(var(--radius) + 4px);
+}
+
+::selection {
+  color: #10160c;
+  background: var(--accent);
+}

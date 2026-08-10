@@ -1,0 +1,46 @@
+<mat-card class="setup-card loader" appearance="outlined" aria-labelledby="route-loader-title">
+  <div>
+    <p class="eyebrow">01 / Route</p>
+    <h2 id="route-loader-title">Load a GPX route</h2>
+    @if (currentRoute(); as route) {
+      <p class="route-name">{{ route.name }}</p>
+      <p class="route-detail">
+        {{ (route.totalDistanceMeters / 1000).toFixed(1) }} km ·
+        {{ route.totalAscentMeters.toFixed(0) }} m ascent
+      </p>
+    }
+    @if (!currentRoute()) {
+      <p class="hint">Your route is parsed locally and never uploaded.</p>
+    }
+  </div>
+
+  <div class="actions">
+    <input
+      #fileInput
+      type="file"
+      accept=".gpx,application/gpx+xml"
+      [disabled]="disabled() || loading()"
+      (change)="selectFile($event)"
+    />
+    <button
+      mat-flat-button
+      type="button"
+      [disabled]="disabled() || loading()"
+      (click)="fileInput.click()"
+    >
+      {{ fileActionLabel() }}
+    </button>
+    @if (currentRoute()) {
+      <button mat-button type="button" [disabled]="disabled()" (click)="forgetRoute()">
+        Forget route
+      </button>
+    }
+  </div>
+
+  @if (error(); as message) {
+    <p class="status-message error" role="alert">{{ message }}</p>
+  }
+  @if (notice(); as message) {
+    <p class="status-message" role="status">{{ message }}</p>
+  }
+</mat-card>

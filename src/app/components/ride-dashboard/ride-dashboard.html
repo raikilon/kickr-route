@@ -1,0 +1,68 @@
+<section class="dashboard" aria-label="Live ride statistics">
+  <article class="metric metric-primary">
+    <span class="label">Power</span>
+    <strong>{{ powerWatts().toFixed(0) }}</strong>
+    <span class="unit">watts</span>
+  </article>
+  <article class="metric">
+    <span class="label">Cadence</span>
+    <strong>{{ cadenceRpm().toFixed(0) }}</strong>
+    <span class="unit">rpm</span>
+  </article>
+  <article class="metric">
+    <span class="label">Speed</span>
+    <strong>{{ speedKph().toFixed(1) }}</strong>
+    <span class="unit">km/h</span>
+  </article>
+  <article class="metric gradient">
+    <span class="label">Gradient</span>
+    <strong>{{ ride.currentGradientPercent().toFixed(1) }}</strong>
+    <span class="unit">%</span>
+  </article>
+  <article class="metric distance">
+    <span class="label">Distance</span>
+    <div class="distance-values">
+      <div class="distance-stat distance-completed">
+        <strong>{{ (ride.distanceMeters() / 1000).toFixed(2) }}</strong>
+        <span class="distance-unit">km done</span>
+      </div>
+      <div class="distance-stat distance-remaining">
+        <strong>{{ (ride.distanceRemainingMeters() / 1000).toFixed(2) }}</strong>
+        <span class="distance-unit">km left</span>
+      </div>
+    </div>
+    <div class="distance-progress-row">
+      <div
+        class="route-progress-bar"
+        role="progressbar"
+        aria-label="Route completion"
+        aria-valuemin="0"
+        aria-valuemax="100"
+        [attr.aria-valuenow]="ride.completionPercentage()"
+      >
+        <span [style.width.%]="ride.completionPercentage()"></span>
+      </div>
+      <span class="distance-progress">{{ ride.completionPercentage().toFixed(1) }}%</span>
+    </div>
+  </article>
+  <article class="metric elapsed">
+    <span class="label">Riding time</span>
+    <strong>{{ ride.elapsedSeconds() | duration }}</strong>
+    <span class="unit">h:m:s</span>
+  </article>
+  <article class="status-bar" [class.online]="trainer.connectionState() === 'connected'">
+    <div class="trainer-status">
+      <span class="status-dot"></span>
+      <span>Trainer</span>
+      <span class="status-divider" aria-hidden="true"></span>
+      <strong>{{ trainer.connectionState() }}</strong>
+    </div>
+    @if (trainer.connectionState() === 'connected') {
+      <div class="ride-status">
+        <span>Ride</span>
+        <span class="status-divider" aria-hidden="true"></span>
+        <strong>{{ ride.status() }}</strong>
+      </div>
+    }
+  </article>
+</section>

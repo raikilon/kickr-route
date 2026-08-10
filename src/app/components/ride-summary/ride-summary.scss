@@ -1,0 +1,80 @@
+:host {
+  display: block;
+  padding: clamp(1rem, 3vw, 2rem);
+  background: var(--panel-raised);
+}
+
+header {
+  display: flex;
+  justify-content: space-between;
+  gap: 2rem;
+  padding: 0 1.5rem 1.5rem;
+  border-bottom: 1px solid var(--line);
+}
+
+h2[mat-dialog-title] {
+  margin: 0;
+  padding: 0;
+  font: 700 clamp(1.8rem, 5vw, 3rem) / 1 var(--font-display);
+  letter-spacing: -0.04em;
+}
+
+header p:last-child,
+.privacy {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.completion {
+  display: grid;
+  align-content: center;
+  text-align: right;
+}
+
+.completion strong {
+  color: var(--accent);
+  font: 700 3.5rem/0.9 var(--font-display);
+}
+
+.completion span,
+.stats span {
+  color: var(--muted);
+  font: 600 0.68rem var(--font-mono);
+  text-transform: uppercase;
+}
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1px;
+  margin: 1.5rem 0;
+  overflow: hidden;
+  background: var(--line);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.stats article {
+  display: grid;
+  gap: 0.5rem;
+  padding: 1rem;
+  background: var(--panel);
+}
+
+.stats strong {
+  font-size: 1rem;
+}
+
+@media (max-width: 600px) {
+  header {
+    flex-direction: column;
+  }
+
+  .completion {
+    text-align: left;
+  }
+
+  .stats {
+    grid-template-columns: 1fr;
+  }
+}

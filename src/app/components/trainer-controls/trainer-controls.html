@@ -1,0 +1,166 @@
+<mat-card class="setup-card controls" appearance="outlined" aria-labelledby="trainer-title">
+  <div class="heading">
+    <p class="eyebrow">02 / Trainer</p>
+    <h2 id="trainer-title">{{ connectionLabel() }}</h2>
+    <div class="status-row">
+      <span class="status-dot" [class.online]="trainer.connectionState() === 'connected'"></span>
+      <span>{{ controlLabel() }}</span>
+    </div>
+  </div>
+
+  @if (trainer.connectionState() !== 'connected') {
+    <div class="connect-actions">
+      <button
+        mat-flat-button
+        type="button"
+        [disabled]="trainer.connectionState() === 'connecting' || !trainer.bluetoothSupported"
+        (click)="connect()"
+      >
+        Connect trainer
+      </button>
+      <button
+        mat-stroked-button
+        class="demo-action"
+        type="button"
+        [disabled]="trainer.connectionState() === 'connecting'"
+        (click)="useDemo()"
+      >
+        Use demo trainer
+      </button>
+    </div>
+  }
+  @if (trainer.connectionState() === 'connected') {
+    <div class="ride-actions">
+      @switch (ride.status()) {
+        @case ('ready') {
+          <button mat-flat-button type="button" [disabled]="!ride.canStart()" (click)="start()">
+            Start ride
+          </button>
+        }
+        @case ('riding') {
+          <button mat-stroked-button type="button" (click)="pause()">Pause</button>
+          <button mat-button class="danger-action" type="button" (click)="finish()">Finish</button>
+        }
+        @case ('starting') {
+          <button mat-flat-button type="button" disabled>Starting…</button>
+        }
+        @case ('paused') {
+          <button mat-flat-button type="button" (click)="resume()">Resume</button>
+          <button mat-button class="danger-action" type="button" (click)="finish()">Finish</button>
+        }
+        @default {
+          <button mat-flat-button type="button" [disabled]="!ride.canStart()" (click)="start()">
+            Start ride
+          </button>
+        }
+      }
+      @if (
+        ride.status() !== 'starting' && ride.status() !== 'riding' && ride.status() !== 'paused'
+      ) {
+        <button mat-button type="button" (click)="disconnect()">Disconnect</button>
+      }
+    </div>
+    @if (trainer.mode() === 'ftms' && trainer.controlState() === 'ready') {
+      <section class="simulation-settings" aria-labelledby="simulation-settings-title">
+        <div class="simulation-heading">
+          <div>
+            <span id="simulation-settings-title">Ride environment</span>
+            <small>Simulation mode</small>
+          </div>
+          <output>{{ trainer.environment().windResistanceCoefficient.toFixed(2) }} kg/m</output>
+        </div>
+
+        <div class="wind-setting">
+          <span class="setting-label">Wind</span>
+          <div class="wind-stepper">
+            <button
+              mat-stroked-button
+              type="button"
+              aria-label="Decrease wind by 5 kilometers per hour"
+              [disabled]="trainer.environment().windSpeedKph <= -50"
+              (click)="adjustWindSpeed(-5)"
+            >
+              -5
+            </button>
+            <label>
+              <input
+                type="number"
+                min="-50"
+                max="50"
+                step="5"
+                aria-label="Wind speed in kilometers per hour"
+                [value]="trainer.environment().windSpeedKph"
+                (change)="setWindSpeed($event)"
+              />
+              <span>km/h</span>
+            </label>
+            <button
+              mat-stroked-button
+              type="button"
+              aria-label="Increase wind by 5 kilometers per hour"
+              [disabled]="trainer.environment().windSpeedKph >= 50"
+              (click)="adjustWindSpeed(5)"
+            >
+              +5
+            </button>
+          </div>
+          <small>+ headwind / - tailwind</small>
+        </div>
+
+        <div class="posture-setting">
+          <span class="setting-label">Posture</span>
+          <div class="posture-options" role="group" aria-label="Riding posture">
+            <button
+              mat-stroked-button
+              type="button"
+              [class.active]="trainer.environment().ridingPosture === 'aero'"
+              [attr.aria-pressed]="trainer.environment().ridingPosture === 'aero'"
+              (click)="setRidingPosture('aero')"
+            >
+              Aero
+            </button>
+            <button
+              mat-stroked-button
+              type="button"
+              [class.active]="trainer.environment().ridingPosture === 'road'"
+              [attr.aria-pressed]="trainer.environment().ridingPosture === 'road'"
+              (click)="setRidingPosture('road')"
+            >
+              Road
+            </button>
+            <button
+              mat-stroked-button
+              type="button"
+              [class.active]="trainer.environment().ridingPosture === 'upright'"
+              [attr.aria-pressed]="trainer.environment().ridingPosture === 'upright'"
+              (click)="setRidingPosture('upright')"
+            >
+              Upright
+            </button>
+          </div>
+          <small>Approximate aerodynamic drag, not body weight</small>
+        </div>
+      </section>
+    }
+  }
+
+  @if (!trainer.bluetoothSupported) {
+    <p class="status-message" role="note">
+      Web Bluetooth is unavailable. Use Chrome or Edge on a compatible platform over HTTPS, or try
+      demo mode.
+    </p>
+  }
+  @if (trainer.error(); as message) {
+    <p class="status-message error" role="alert">
+      {{ message }}
+      <button
+        mat-button
+        type="button"
+        aria-label="Dismiss trainer error"
+        (click)="trainer.clearError()"
+      >
+        Dismiss
+      </button>
+    </p>
+  }
+</mat-card>
