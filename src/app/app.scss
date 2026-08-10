@@ -64,24 +64,28 @@
 }
 
 .local-badge {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5em;
   color: var(--muted);
   font: 600 0.67rem/1 var(--font-mono);
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
 
+.local-badge span {
+  line-height: 1cap;
+}
+
 .local-badge svg {
-  width: 1em;
-  height: 1em;
-  display: inline-block;
-  margin-inline-end: 0.5em;
+  width: 1.65cap;
+  height: 1.65cap;
+  flex: none;
   fill: none;
   stroke: var(--accent);
   stroke-linecap: round;
   stroke-linejoin: round;
   stroke-width: 1.5;
-  vertical-align: middle;
 }
 
 main {

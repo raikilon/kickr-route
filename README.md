@@ -39,6 +39,25 @@ open the [test route](https://raikilon.github.io/kickr-route/test/), load a GPX 
 
 For local testing, open `http://localhost:4200/test` after starting the app.
 
+## Development
+
+kickr-route is built with Angular 22 and requires Node.js 24.
+
+Install dependencies and start the development server:
+
+```bash
+npm ci
+npm start
+```
+
+Create a production build:
+
+```bash
+npm run build
+```
+
+The local app is available at `http://localhost:4200/`.
+
 ## Privacy
 
 GPX parsing, trainer telemetry, ride progress, and statistics stay in your browser. There is no
