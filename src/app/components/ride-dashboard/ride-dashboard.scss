@@ -1,0 +1,200 @@
+.dashboard {
+  display: grid;
+  grid-template-columns: repeat(8, minmax(0, 1fr));
+  gap: 1px;
+  overflow: hidden;
+  background: var(--line);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+.metric {
+  position: relative;
+  min-height: 142px;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  grid-template-rows: auto 1fr auto;
+  align-items: end;
+  padding: 1.1rem;
+  background: var(--panel);
+  container-type: inline-size;
+}
+
+.metric-primary {
+  background: linear-gradient(145deg, #202c20, var(--panel) 68%);
+}
+
+.label {
+  grid-column: 1 / -1;
+  align-self: start;
+  color: var(--muted);
+  font: 700 0.68rem/1 var(--font-mono);
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+strong {
+  font: 700 clamp(2.5rem, 32cqi, 4rem) / 0.9 var(--font-display);
+  letter-spacing: -0.06em;
+}
+
+.metric-primary strong {
+  color: var(--accent);
+}
+
+.unit {
+  padding-left: 0.35rem;
+  color: var(--muted);
+  font: 600 0.68rem/1 var(--font-mono);
+}
+
+.distance {
+  grid-column: span 2;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto 1fr;
+  padding-bottom: 1.75rem;
+}
+
+.distance .label {
+  grid-column: 1;
+  grid-row: 1;
+}
+
+.distance-values {
+  grid-column: 1;
+  grid-row: 2;
+  align-self: end;
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 1rem;
+}
+
+.distance-stat {
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 0.45rem;
+  white-space: nowrap;
+}
+
+.distance-completed strong {
+  font-size: clamp(2.5rem, 17cqi, 3.5rem);
+  letter-spacing: -0.05em;
+}
+
+.distance-remaining {
+  padding-left: 1rem;
+  border-left: 1px solid var(--line-bright);
+}
+
+.distance-remaining strong {
+  font: 700 clamp(1.5rem, 10cqi, 1.9rem) / 0.9 var(--font-display);
+  letter-spacing: -0.04em;
+}
+
+.distance-unit {
+  color: var(--muted);
+  font: 600 0.6rem/1 var(--font-mono);
+  text-transform: uppercase;
+}
+
+.distance-progress-row {
+  position: absolute;
+  right: 1rem;
+  bottom: 0.65rem;
+  left: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.distance-progress {
+  color: var(--accent);
+  font: 700 0.72rem/1 var(--font-mono);
+}
+
+.elapsed {
+  grid-column: span 2;
+}
+
+.elapsed strong {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.route-progress-bar {
+  min-width: 0;
+  flex: 1;
+  height: 3px;
+  overflow: hidden;
+  background: var(--line-bright);
+  border-radius: 999px;
+}
+
+.route-progress-bar span {
+  height: 100%;
+  display: block;
+  background: var(--accent);
+  border-radius: inherit;
+  transition: width 250ms ease;
+}
+
+.status-bar {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.55rem 1rem;
+  color: var(--muted);
+  background: var(--panel-raised);
+  font: 600 0.68rem/1 var(--font-mono);
+  text-transform: uppercase;
+}
+
+.trainer-status,
+.ride-status {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.status-divider {
+  width: 1px;
+  height: 0.85rem;
+  background: var(--line-bright);
+}
+
+.trainer-status strong,
+.ride-status strong {
+  color: var(--text);
+  font: inherit;
+}
+
+.status-dot {
+  width: 0.45rem;
+  height: 0.45rem;
+  background: var(--muted);
+  border-radius: 50%;
+}
+
+.status-bar.online .status-dot {
+  background: var(--accent);
+}
+
+@media (max-width: 1100px) {
+  .dashboard {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 620px) {
+  .dashboard {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .metric {
+    min-height: 125px;
+  }
+}

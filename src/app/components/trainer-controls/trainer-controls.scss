@@ -1,0 +1,156 @@
+:host {
+  display: block;
+}
+
+.controls {
+  --eyebrow-color: var(--blue);
+}
+
+h2 {
+  margin: 0;
+  font-size: 1.15rem;
+}
+
+.status-row {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin-top: 0.5rem;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.status-dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  background: var(--muted);
+  border-radius: 50%;
+}
+
+.status-dot.online {
+  background: var(--accent);
+  box-shadow: 0 0 0 4px rgb(190 255 42 / 10%);
+}
+
+.connect-actions,
+.ride-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.6rem;
+}
+
+.demo-action {
+  color: var(--blue);
+}
+
+.danger-action {
+  color: var(--danger);
+}
+
+.simulation-settings {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 1rem 1.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--line);
+}
+
+.simulation-heading {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.simulation-heading div,
+.wind-setting,
+.posture-setting {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.simulation-heading span,
+.setting-label {
+  font: 700 0.72rem/1 var(--font-mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.simulation-heading output {
+  color: var(--blue);
+  font: 700 0.75rem/1 var(--font-mono);
+}
+
+.simulation-settings small {
+  color: var(--muted);
+  font-size: 0.7rem;
+}
+
+.wind-stepper,
+.posture-options {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.wind-stepper label {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.55rem;
+  background: var(--panel-raised);
+  border: 1px solid var(--line-bright);
+  border-radius: 8px;
+}
+
+.wind-stepper input {
+  width: 3.5rem;
+  color: var(--text);
+  background: transparent;
+  border: 0;
+  outline: 0;
+  font: 700 0.85rem/1 var(--font-mono);
+  text-align: right;
+}
+
+.wind-stepper label span {
+  color: var(--muted);
+  font: 600 0.68rem/1 var(--font-mono);
+}
+
+.posture-options button.active {
+  color: #10160c;
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.status-message button {
+  margin-left: 0.5rem;
+}
+
+@media (max-width: 700px) {
+  .controls {
+    grid-template-columns: 1fr;
+  }
+
+  .connect-actions,
+  .ride-actions {
+    justify-content: flex-start;
+  }
+
+  .simulation-settings {
+    grid-template-columns: 1fr;
+  }
+
+  .simulation-heading {
+    grid-column: auto;
+  }
+
+  .wind-stepper,
+  .posture-options {
+    flex-wrap: wrap;
+  }
+}

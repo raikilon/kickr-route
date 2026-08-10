@@ -1,0 +1,64 @@
+<section class="map-shell" aria-label="Route map">
+  <div #mapContainer class="map"></div>
+  <div class="map-controls basemap-controls" aria-label="Map type">
+    <div class="control-group">
+      <button
+        type="button"
+        [class.active]="basemap() === 'street'"
+        [attr.aria-pressed]="basemap() === 'street'"
+        (click)="selectBasemap('street')"
+      >
+        Street
+      </button>
+      <button
+        type="button"
+        [class.active]="basemap() === 'satellite'"
+        [attr.aria-pressed]="basemap() === 'satellite'"
+        (click)="selectBasemap('satellite')"
+      >
+        Satellite
+      </button>
+    </div>
+  </div>
+  <div class="map-controls dimension-controls" aria-label="Map dimension">
+    <div class="control-group">
+      <button
+        type="button"
+        [class.active]="terrainEnabled()"
+        [attr.aria-pressed]="terrainEnabled()"
+        (click)="toggleTerrain()"
+      >
+        3D
+      </button>
+    </div>
+  </div>
+  <div class="map-controls tracking-controls" aria-label="Map tracking">
+    <div class="control-group">
+      <button
+        type="button"
+        [class.active]="headingUp()"
+        [attr.aria-pressed]="headingUp()"
+        (click)="toggleOrientation()"
+      >
+        {{ orientationLabel() }}
+      </button>
+    </div>
+    <div class="control-group">
+      <button
+        type="button"
+        [class.active]="autoFollow()"
+        [attr.aria-pressed]="autoFollow()"
+        (click)="toggleFollow()"
+      >
+        {{ followLabel() }}
+      </button>
+    </div>
+  </div>
+  @if (mapError()) {
+    <p class="offline-warning" role="alert">{{ mapError() }} Route tracking remains active.</p>
+  } @else if (tileWarning()) {
+    <p class="offline-warning" role="status">
+      Some map data is unavailable. Route tracking is still active.
+    </p>
+  }
+</section>

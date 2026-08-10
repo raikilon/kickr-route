@@ -1,0 +1,66 @@
+<header>
+  <div>
+    <p class="eyebrow">Ride complete</p>
+    <h2 mat-dialog-title id="summary-title">{{ data.routeName }}</h2>
+    <p>{{ data.summary.finishedAt.toLocaleString() }}</p>
+  </div>
+  <div class="completion">
+    <strong>{{ data.summary.completionPercentage.toFixed(0) }}%</strong>
+    <span>complete</span>
+  </div>
+</header>
+
+<mat-dialog-content>
+  <div class="stats">
+    <article>
+      <span>Riding time</span><strong>{{ data.summary.elapsedSeconds | duration }}</strong>
+    </article>
+    <article>
+      <span>Distance</span
+      ><strong>{{ (data.summary.completedDistanceMeters / 1000).toFixed(2) }} km</strong>
+    </article>
+    <article>
+      <span>Power avg / max</span>
+      <strong
+        >{{ data.summary.averagePowerWatts.toFixed(0) }} /
+        {{ data.summary.maximumPowerWatts.toFixed(0) }} W</strong
+      >
+    </article>
+    <article>
+      <span>Cadence avg / max</span>
+      <strong
+        >{{ data.summary.averageCadenceRpm.toFixed(0) }} /
+        {{ data.summary.maximumCadenceRpm.toFixed(0) }} rpm</strong
+      >
+    </article>
+    <article>
+      <span>Speed avg / max</span>
+      <strong
+        >{{ data.summary.averageSpeedKph.toFixed(1) }} /
+        {{ data.summary.maximumSpeedKph.toFixed(1) }} km/h</strong
+      >
+    </article>
+    <article>
+      <span>Ascent completed</span
+      ><strong>{{ data.summary.totalAscentMeters.toFixed(0) }} m</strong>
+    </article>
+    <article>
+      <span>Estimated energy</span
+      ><strong>{{ data.summary.estimatedEnergyKilojoules.toFixed(0) }} kJ</strong>
+    </article>
+    <article>
+      <span>Gradient min / max</span>
+      <strong
+        >{{ data.summary.minimumGradientPercent.toFixed(1) }} /
+        {{ data.summary.maximumGradientPercent.toFixed(1) }}%</strong
+      >
+    </article>
+  </div>
+  <p class="privacy">
+    This summary exists in memory only and will be discarded when the page closes.
+  </p>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button mat-flat-button type="button" (click)="close()">Ride this route again</button>
+</mat-dialog-actions>
