@@ -81,6 +81,12 @@
   background: var(--accent);
 }
 
+.control-group button:disabled {
+  color: var(--muted);
+  cursor: default;
+  opacity: 0.45;
+}
+
 .offline-warning {
   left: 0.8rem;
   right: 0.8rem;

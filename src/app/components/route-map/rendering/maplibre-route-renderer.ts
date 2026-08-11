@@ -1,4 +1,4 @@
-import type { Feature, FeatureCollection, MultiLineString, Point, Position } from 'geojson';
+import type { Feature, FeatureCollection, LineString, Point, Position } from 'geojson';
 import type {
   EaseToOptions,
   GeoJSONSource,
@@ -9,7 +9,7 @@ import type {
 } from 'maplibre-gl';
 import { GeoCoordinate } from '../../../core/route/geo-coordinate';
 import { Route } from '../../../core/route/route';
-import { RouteMapView } from '../projection/route-map-projection';
+import { RouteMapPath, RouteMapView } from '../projection/route-map-projection';
 
 const OPEN_FREE_MAP_STYLE = 'https://tiles.openfreemap.org/styles/liberty';
 const MAPTERHORN_TILEJSON = 'https://tiles.mapterhorn.com/tilejson.json';
@@ -19,6 +19,7 @@ const SWISSIMAGE_BOUNDS: [number, number, number, number] = [
   3.329595, 44.074747, 14.278255, 49.200438,
 ];
 const INITIAL_FOLLOW_ZOOM = 15;
+const REMAINING_ROUTE_COLOR = '#d7e1e7';
 
 const SOURCE_IDS = {
   satellite: 'kickr-satellite',
@@ -45,6 +46,7 @@ export interface RouteMapRenderOptions {
   readonly terrainEnabled: boolean;
   readonly headingUp: boolean;
   readonly autoFollow: boolean;
+  readonly gradientColors: boolean;
 }
 
 export class MapLibreRouteRenderer {
@@ -54,6 +56,7 @@ export class MapLibreRouteRenderer {
   private pendingInitialFollowRoute: Route | null = null;
   private appliedBasemap: RouteMapBasemap | null = null;
   private terrainEnabled = false;
+  private gradientColorsEnabled = false;
   private satelliteBuildingsAvailable = false;
   private riderMarker: MapLibreMarker | null = null;
 
@@ -92,6 +95,7 @@ export class MapLibreRouteRenderer {
   render(view: RouteMapView, options: RouteMapRenderOptions): void {
     this.applyBasemap(options.basemap);
     this.applyTerrain(options.terrainEnabled);
+    this.applyRouteColors(options.gradientColors);
     this.updateRouteData(view);
     this.fitNewRoute(view.route);
     this.updateCamera(view, options);
@@ -285,7 +289,7 @@ export class MapLibreRouteRenderer {
       id: LAYER_IDS.remaining,
       type: 'line',
       source: SOURCE_IDS.remaining,
-      paint: { 'line-color': '#24b8ff', 'line-width': 5, 'line-opacity': 1 },
+      paint: { 'line-color': REMAINING_ROUTE_COLOR, 'line-width': 5, 'line-opacity': 1 },
       layout: { 'line-cap': 'round', 'line-join': 'round' },
     });
     this.map.addLayer({
@@ -373,6 +377,24 @@ export class MapLibreRouteRenderer {
     this.setLayerVisibility(LAYER_IDS.satelliteBuildings, visibility);
   }
 
+  private applyRouteColors(enabled: boolean): void {
+    if (this.gradientColorsEnabled === enabled) {
+      return;
+    }
+    this.gradientColorsEnabled = enabled;
+    if (enabled) {
+      this.map.setPaintProperty(LAYER_IDS.remaining, 'line-color', ['get', 'gradientColor']);
+      this.map.setPaintProperty(LAYER_IDS.remaining, 'line-opacity', 1);
+      this.map.setPaintProperty(LAYER_IDS.completed, 'line-color', ['get', 'gradientColor']);
+      this.map.setPaintProperty(LAYER_IDS.completed, 'line-opacity', 0.38);
+      return;
+    }
+    this.map.setPaintProperty(LAYER_IDS.remaining, 'line-color', REMAINING_ROUTE_COLOR);
+    this.map.setPaintProperty(LAYER_IDS.remaining, 'line-opacity', 1);
+    this.map.setPaintProperty(LAYER_IDS.completed, 'line-color', '#beff2a');
+    this.map.setPaintProperty(LAYER_IDS.completed, 'line-opacity', 1);
+  }
+
   private setLayerVisibility(layerId: string, visibility: 'visible' | 'none'): void {
     if (!this.map.getLayer(layerId)) {
       return;
@@ -392,22 +414,17 @@ export class MapLibreRouteRenderer {
     source?.setData(data);
   }
 
-  private lineFeatureCollection(
-    paths: readonly (readonly GeoCoordinate[])[],
-  ): FeatureCollection<MultiLineString> {
-    const coordinates = paths.map((path) => path.map((coordinate) => this.position(coordinate)));
-    if (coordinates.length === 0) {
-      return this.emptyFeatureCollection<MultiLineString>();
-    }
+  private lineFeatureCollection(paths: readonly RouteMapPath[]): FeatureCollection<LineString> {
     return {
       type: 'FeatureCollection',
-      features: [
-        {
-          type: 'Feature',
-          properties: {},
-          geometry: { type: 'MultiLineString', coordinates },
+      features: paths.map((path) => ({
+        type: 'Feature',
+        properties: { gradientColor: path.gradientColor },
+        geometry: {
+          type: 'LineString',
+          coordinates: path.coordinates.map((coordinate) => this.position(coordinate)),
         },
-      ],
+      })),
     };
   }
 
@@ -451,7 +468,7 @@ export class MapLibreRouteRenderer {
     };
   }
 
-  private emptyFeatureCollection<T extends MultiLineString | Point>(): FeatureCollection<T> {
+  private emptyFeatureCollection<T extends LineString | Point>(): FeatureCollection<T> {
     return { type: 'FeatureCollection', features: [] };
   }
 

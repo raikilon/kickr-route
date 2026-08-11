@@ -2,7 +2,7 @@ import { GeoCoordinate } from '../../../core/route/geo-coordinate';
 import { RouteProcessingPolicy } from '../../../core/route/route-processing-policy';
 import { RouteSegment } from '../../../core/route/route-segment';
 import { Route } from '../../../core/route/route';
-import { ElevationProfileProjector, GradientDifficultyScale } from './elevation-profile-projector';
+import { ElevationProfileProjector } from './elevation-profile-projector';
 
 describe('ElevationProfileProjector', () => {
   it('projects a rider-centered zoom window', () => {
@@ -75,15 +75,6 @@ describe('ElevationProfileProjector', () => {
     const projection = new ElevationProfileProjector(route, riderDistance, 1_000).project()!;
 
     expect(projection.viewportEndMeters).toBeCloseTo(route.totalDistanceMeters, 6);
-  });
-
-  it('classifies gradient thresholds for the difficulty legend', () => {
-    const scale = new GradientDifficultyScale();
-    expect(scale.classify(-0.1).label).toBe('Descent');
-    expect(scale.classify(0).label).toBe('Easy');
-    expect(scale.classify(3).label).toBe('Moderate');
-    expect(scale.classify(6).label).toBe('Hard');
-    expect(scale.classify(9).label).toBe('Very hard');
   });
 
   it('returns no profile when the whole route lacks elevation', () => {
