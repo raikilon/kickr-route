@@ -98,6 +98,10 @@ vi.mock('maplibre-gl', () => {
       return mapMock.pitch;
     }
 
+    getZoom(): number {
+      return mapMock.zoom;
+    }
+
     readonly addControl = vi.fn();
 
     resize(): void {
@@ -228,8 +232,8 @@ describe('MapLibreRouteRenderer', () => {
     expect(mapMock.resizeCalls).toBe(2);
     expect(mapMock.markerUpdates).toBe(6);
     expect(mapMock.pitch).toBe(55);
-    expect(mapMock.zoom).toBe(15);
-    expect(mapMock.zoomCalls).toBe(2);
+    expect(mapMock.zoom).toBe(16);
+    expect(mapMock.zoomCalls).toBe(3);
     expect(mapMock.paintProperties).toContainEqual({
       layerId: 'kickr-completed-route',
       property: 'line-color',
@@ -251,6 +255,45 @@ describe('MapLibreRouteRenderer', () => {
       value: '#beff2a',
     });
     expect(mapMock.workerUrl).toBe(new URL('maplibre-gl-worker.mjs', document.baseURI).toString());
+  });
+
+  it('does not override a closer manual zoom or zoom when auto-follow is off', async () => {
+    const renderer = await MapLibreRouteRenderer.create(document.createElement('div'), vi.fn());
+    const route = new Route('Camera route', [
+      new RouteSegment(
+        0,
+        0,
+        [
+          { coordinate: new GeoCoordinate(0, 7), elevationMeters: 500 },
+          { coordinate: new GeoCoordinate(0.01, 7.01), elevationMeters: 510 },
+        ],
+        new RouteProcessingPolicy(0, 100),
+      ),
+    ]);
+    const view = new RouteMapProjection(route, 0, route.locationAt(0)).project();
+    const renderOptions = {
+      basemap: 'street' as const,
+      terrainEnabled: true,
+      headingUp: false,
+      autoFollow: true,
+      gradientColors: false,
+    };
+
+    renderer.render(view, renderOptions);
+    expect(mapMock.zoom).toBe(16);
+    expect(mapMock.zoomCalls).toBe(1);
+
+    mapMock.zoom = 17;
+    renderer.render(view, { ...renderOptions, terrainEnabled: false });
+    renderer.render(view, renderOptions);
+    expect(mapMock.zoom).toBe(17);
+    expect(mapMock.zoomCalls).toBe(1);
+
+    mapMock.zoom = 14;
+    renderer.render(view, { ...renderOptions, terrainEnabled: false });
+    renderer.render(view, { ...renderOptions, autoFollow: false });
+    expect(mapMock.zoom).toBe(14);
+    expect(mapMock.zoomCalls).toBe(1);
   });
 
   it('rejects style initialization errors and removes the map', async () => {

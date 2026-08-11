@@ -19,6 +19,7 @@ const SWISSIMAGE_BOUNDS: [number, number, number, number] = [
   3.329595, 44.074747, 14.278255, 49.200438,
 ];
 const INITIAL_FOLLOW_ZOOM = 15;
+const TERRAIN_FOLLOW_ZOOM = 16;
 const REMAINING_ROUTE_COLOR = '#d7e1e7';
 
 const SOURCE_IDS = {
@@ -498,6 +499,13 @@ export class MapLibreRouteRenderer {
       camera.pitch = desiredPitch;
       camera.duration = 400;
       shouldMove = true;
+      if (
+        options.terrainEnabled &&
+        options.autoFollow &&
+        this.map.getZoom() < TERRAIN_FOLLOW_ZOOM
+      ) {
+        camera.zoom = TERRAIN_FOLLOW_ZOOM;
+      }
     }
     const desiredBearing = this.desiredBearing(view, options.headingUp);
     if (this.bearingDifference(this.map.getBearing(), desiredBearing) >= 0.5) {
@@ -508,7 +516,7 @@ export class MapLibreRouteRenderer {
       camera.center = this.position(view.rider) as [number, number];
       shouldMove = true;
       if (this.pendingInitialFollowRoute === view.route) {
-        camera.zoom = INITIAL_FOLLOW_ZOOM;
+        camera.zoom = this.initialFollowZoom(options.terrainEnabled);
         camera.duration = 0;
         this.pendingInitialFollowRoute = null;
       }
@@ -516,6 +524,13 @@ export class MapLibreRouteRenderer {
     if (shouldMove) {
       this.map.easeTo(camera);
     }
+  }
+
+  private initialFollowZoom(terrainEnabled: boolean): number {
+    if (terrainEnabled) {
+      return TERRAIN_FOLLOW_ZOOM;
+    }
+    return INITIAL_FOLLOW_ZOOM;
   }
 
   private desiredPitch(terrainEnabled: boolean): number {
