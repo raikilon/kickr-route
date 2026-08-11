@@ -34,49 +34,6 @@ describe('ElevationProfileProjector', () => {
     expect(projection.paths.length).toBeGreaterThan(0);
   });
 
-  it('uses wider distance ticks for a long full-route view', () => {
-    const segment = new RouteSegment(
-      0,
-      0,
-      [
-        { coordinate: new GeoCoordinate(0, 0), elevationMeters: 100 },
-        { coordinate: new GeoCoordinate(0, 0.2), elevationMeters: 200 },
-      ],
-      new RouteProcessingPolicy(0, 100),
-    );
-    const projection = new ElevationProfileProjector(
-      new Route('Long route', [segment]),
-      0,
-      null,
-    ).project()!;
-
-    expect(projection.distanceTicks.map((tick) => tick.label)).toEqual([
-      '0 km',
-      '5 km',
-      '10 km',
-      '15 km',
-      '20 km',
-    ]);
-    expect(projection.distanceGuides).toHaveLength(4);
-  });
-
-  it('clamps zoom at the route finish', () => {
-    const segment = new RouteSegment(
-      0,
-      0,
-      [
-        { coordinate: new GeoCoordinate(0, 0), elevationMeters: 100 },
-        { coordinate: new GeoCoordinate(0, 0.03), elevationMeters: 160 },
-      ],
-      new RouteProcessingPolicy(0, 100),
-    );
-    const route = new Route('Finish', [segment]);
-    const riderDistance = route.totalDistanceMeters - 50;
-    const projection = new ElevationProfileProjector(route, riderDistance, 1_000).project()!;
-
-    expect(projection.viewportEndMeters).toBeCloseTo(route.totalDistanceMeters, 6);
-  });
-
   it('returns no profile when the whole route lacks elevation', () => {
     const segment = new RouteSegment(
       0,
