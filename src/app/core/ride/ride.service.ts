@@ -1,4 +1,5 @@
 import { computed, DestroyRef, effect, inject, Injectable, signal } from '@angular/core';
+import { ScreenWakeLockService } from '../platform/screen-wake-lock.service';
 import { RouteLocation } from '../route/route-point';
 import { Route } from '../route/route';
 import { TrainerService } from '../trainer/trainer.service';
@@ -13,6 +14,7 @@ export type RideServiceStatus = 'idle' | 'starting' | RideStatus;
 @Injectable({ providedIn: 'root' })
 export class RideService {
   private readonly trainer = inject(TrainerService);
+  private readonly screenWakeLock = inject(ScreenWakeLockService);
   private readonly destroyRef = inject(DestroyRef);
   private readonly routeSignal = signal<Route | null>(null);
   private readonly statusSignal = signal<RideServiceStatus>('idle');
@@ -71,6 +73,7 @@ export class RideService {
   });
   constructor() {
     effect(() => this.handleTrainerConnectionChange(this.trainer.connectionState()));
+    effect(() => this.screenWakeLock.setRequired(this.shouldKeepScreenAwake(this.statusSignal())));
     this.destroyRef.onDestroy(() => this.stopTimer());
   }
 
@@ -241,6 +244,10 @@ export class RideService {
 
   private isActiveStatus(status: RideStatus): boolean {
     return status === 'riding' || status === 'paused';
+  }
+
+  private shouldKeepScreenAwake(status: RideServiceStatus): boolean {
+    return status === 'starting' || status === 'riding' || status === 'paused';
   }
 
   private canCompleteStart(session: RideSession): boolean {
