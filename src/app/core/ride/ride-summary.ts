@@ -9,7 +9,6 @@ export interface RideSummary {
   readonly averageSpeedKph: number;
   readonly maximumSpeedKph: number;
   readonly totalAscentMeters: number;
-  readonly estimatedEnergyKilojoules: number;
   readonly minimumGradientPercent: number;
   readonly maximumGradientPercent: number;
   readonly finishedAt: Date;

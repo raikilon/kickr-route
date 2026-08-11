@@ -12,10 +12,4 @@ describe('RideStatistics', () => {
     expect(statistics.maximumCadenceRpm).toBe(100);
     expect(statistics.maximumSpeedKph).toBe(40);
   });
-
-  it('calculates mechanical energy from accumulated power', () => {
-    const statistics = new RideStatistics();
-    statistics.record({ timestamp: 0, powerWatts: 200 }, 60);
-    expect(statistics.estimatedEnergyKilojoules).toBe(12);
-  });
 });

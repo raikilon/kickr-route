@@ -4,17 +4,20 @@ import { TrainerTelemetry } from '../trainer/trainer-telemetry';
 import { RideDistance } from './ride-distance';
 import { RideStatistics } from './ride-statistics';
 import { RideSummary } from './ride-summary';
+import { RideSummaryBuilder } from './ride-summary-builder';
 
 export type RideStatus = 'ready' | 'riding' | 'paused' | 'finished';
 
 export class RideSession {
   private distance: RideDistance;
   private statistics = new RideStatistics();
+  private readonly summaryBuilder: RideSummaryBuilder;
   private elapsedRideSeconds = 0;
   private rideStatus: RideStatus = 'ready';
 
   constructor(readonly route: Route) {
     this.distance = new RideDistance(route.totalDistanceMeters);
+    this.summaryBuilder = new RideSummaryBuilder(route);
   }
 
   get status(): RideStatus {
@@ -81,22 +84,10 @@ export class RideSession {
 
   finish(): RideSummary {
     this.rideStatus = 'finished';
-    const gradientRange = this.route.gradientRangeAt(this.completedDistanceMeters);
-    return {
-      elapsedSeconds: this.elapsedRideSeconds,
-      completedDistanceMeters: this.completedDistanceMeters,
-      completionPercentage: this.completionPercentage,
-      averagePowerWatts: this.statistics.averagePowerWatts,
-      maximumPowerWatts: this.statistics.maximumPowerWatts,
-      averageCadenceRpm: this.statistics.averageCadenceRpm,
-      maximumCadenceRpm: this.statistics.maximumCadenceRpm,
-      averageSpeedKph: this.statistics.averageSpeedKph,
-      maximumSpeedKph: this.statistics.maximumSpeedKph,
-      totalAscentMeters: this.route.ascentAt(this.completedDistanceMeters),
-      estimatedEnergyKilojoules: this.statistics.estimatedEnergyKilojoules,
-      minimumGradientPercent: gradientRange.minimumPercent,
-      maximumGradientPercent: gradientRange.maximumPercent,
-      finishedAt: new Date(),
-    };
+    return this.summaryBuilder.build(
+      this.statistics,
+      this.elapsedRideSeconds,
+      this.completedDistanceMeters,
+    );
   }
 }
