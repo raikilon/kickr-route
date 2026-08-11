@@ -23,6 +23,7 @@ export class TrainerService {
   private activeTrainer: Trainer | null = null;
   private activeConnection: TrainerConnection | null = null;
   private subscriptions = new Subscription();
+  private connectionAttemptId = 0;
 
   readonly connectionState = this.connectionStateSignal.asReadonly();
   readonly controlState = this.controlStateSignal.asReadonly();
@@ -135,11 +136,17 @@ export class TrainerService {
     if (!this.canConnect()) {
       return;
     }
-    this.beginConnection(trainer, mode);
+    const connectionAttemptId = this.beginConnection(trainer, mode);
     try {
       const connection = await trainer.connect();
+      if (!this.isCurrentConnectionAttempt(trainer, connectionAttemptId)) {
+        return;
+      }
       this.publishConnection(connection);
     } catch (error) {
+      if (!this.isCurrentConnectionAttempt(trainer, connectionAttemptId)) {
+        return;
+      }
       this.resetState();
       this.fail(this.connectionErrorMessage(error));
     }
@@ -150,7 +157,7 @@ export class TrainerService {
     return state === 'disconnected' || state === 'error';
   }
 
-  private beginConnection(trainer: Trainer, mode: TrainerMode): void {
+  private beginConnection(trainer: Trainer, mode: TrainerMode): number {
     this.resetState();
     this.activeTrainer = trainer;
     trainer.setEnvironment(this.environmentSignal());
@@ -159,6 +166,15 @@ export class TrainerService {
     this.controlStateSignal.set('requesting');
     this.errorSignal.set(null);
     this.observeTrainer(trainer);
+    return this.connectionAttemptId;
+  }
+
+  private isCurrentConnectionAttempt(trainer: Trainer, connectionAttemptId: number): boolean {
+    return (
+      this.connectionAttemptId === connectionAttemptId &&
+      this.activeTrainer === trainer &&
+      this.connectionStateSignal() === 'connecting'
+    );
   }
 
   private observeTrainer(trainer: Trainer): void {
@@ -204,6 +220,7 @@ export class TrainerService {
   }
 
   private resetState(): void {
+    this.connectionAttemptId += 1;
     this.subscriptions.unsubscribe();
     this.subscriptions = new Subscription();
     this.activeTrainer = null;
