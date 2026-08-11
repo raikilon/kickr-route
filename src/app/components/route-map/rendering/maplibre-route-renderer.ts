@@ -59,6 +59,14 @@ export class MapLibreRouteRenderer {
   private gradientColorsEnabled = false;
   private satelliteBuildingsAvailable = false;
   private riderMarker: MapLibreMarker | null = null;
+  private waitingForTerrain = false;
+  private terrainTransitionId = 0;
+  private terrainTransitionStage: 'pitch' | 'follow' | null = null;
+  private terrainTransitionInitialFollow = false;
+  private pendingTerrainCamera: {
+    readonly view: RouteMapView;
+    readonly options: RouteMapRenderOptions;
+  } | null = null;
 
   private constructor(
     private readonly maplibre: typeof import('maplibre-gl'),
@@ -106,6 +114,10 @@ export class MapLibreRouteRenderer {
   }
 
   destroy(): void {
+    this.terrainTransitionId += 1;
+    this.terrainTransitionStage = null;
+    this.waitingForTerrain = false;
+    this.pendingTerrainCamera = null;
     this.riderMarker?.remove();
     this.map?.remove();
   }
@@ -192,7 +204,7 @@ export class MapLibreRouteRenderer {
   }
 
   private reportLoadedSource(
-    event: MapLibreEvent & { sourceId?: string; isSourceLoaded?: boolean },
+    event: MapLibreEvent & { sourceId?: string; isSourceLoaded?: boolean; tile?: unknown },
   ): void {
     if (!event.sourceId || !event.isSourceLoaded) {
       return;
@@ -205,6 +217,9 @@ export class MapLibreRouteRenderer {
       return;
     }
     this.reportTileAvailability(true);
+    if (event.sourceId === SOURCE_IDS.terrain && event.tile) {
+      queueMicrotask(() => this.resumeTerrainCamera());
+    }
   }
 
   private captureBaseLayers(): void {
@@ -357,11 +372,16 @@ export class MapLibreRouteRenderer {
       return;
     }
     this.terrainEnabled = enabled;
+    this.terrainTransitionId += 1;
+    this.terrainTransitionStage = null;
+    this.pendingTerrainCamera = null;
     if (enabled) {
+      this.waitingForTerrain = true;
       this.map.setTerrain({ source: SOURCE_IDS.terrain, exaggeration: 1 });
       this.updateSatelliteBuildings();
       return;
     }
+    this.waitingForTerrain = false;
     this.map.setTerrain(null);
     this.updateSatelliteBuildings();
   }
@@ -491,9 +511,21 @@ export class MapLibreRouteRenderer {
   }
 
   private updateCamera(view: RouteMapView, options: RouteMapRenderOptions): void {
+    if (this.waitingForTerrain) {
+      this.pendingTerrainCamera = { view, options };
+      return;
+    }
+    if (this.terrainTransitionStage) {
+      this.pendingTerrainCamera = { view, options };
+      return;
+    }
+    const desiredPitch = this.desiredPitch(options.terrainEnabled);
+    if (options.terrainEnabled && Math.abs(this.map.getPitch() - desiredPitch) >= 0.5) {
+      this.startTerrainTransition(view, options);
+      return;
+    }
     const camera: EaseToOptions = { duration: 250 };
     let shouldMove = false;
-    const desiredPitch = this.desiredPitch(options.terrainEnabled);
     if (Math.abs(this.map.getPitch() - desiredPitch) >= 0.5) {
       camera.pitch = desiredPitch;
       camera.duration = 400;
@@ -516,6 +548,73 @@ export class MapLibreRouteRenderer {
     if (shouldMove) {
       this.map.easeTo(camera);
     }
+  }
+
+  private startTerrainTransition(view: RouteMapView, options: RouteMapRenderOptions): void {
+    this.terrainTransitionId += 1;
+    const transitionId = this.terrainTransitionId;
+    this.terrainTransitionStage = 'pitch';
+    this.terrainTransitionInitialFollow = false;
+    this.pendingTerrainCamera = { view, options };
+    if (options.autoFollow && this.pendingInitialFollowRoute === view.route) {
+      this.terrainTransitionInitialFollow = true;
+      this.pendingInitialFollowRoute = null;
+    }
+    this.map.stop();
+    this.map.once('moveend', () => this.finishTerrainPitch(transitionId));
+    this.map.easeTo({ duration: 300, pitch: this.desiredPitch(true) });
+  }
+
+  private finishTerrainPitch(transitionId: number): void {
+    if (
+      transitionId !== this.terrainTransitionId ||
+      this.terrainTransitionStage !== 'pitch' ||
+      !this.terrainEnabled ||
+      !this.pendingTerrainCamera
+    ) {
+      return;
+    }
+    const target = this.pendingTerrainCamera;
+    this.pendingTerrainCamera = null;
+    this.terrainTransitionStage = 'follow';
+    const camera: EaseToOptions = { duration: 350, freezeElevation: true };
+    if (this.terrainTransitionInitialFollow) {
+      camera.zoom = INITIAL_FOLLOW_ZOOM;
+    }
+    const desiredBearing = this.desiredBearing(target.view, target.options.headingUp);
+    if (this.bearingDifference(this.map.getBearing(), desiredBearing) >= 0.5) {
+      camera.bearing = desiredBearing;
+    }
+    if (target.options.autoFollow && target.view.rider) {
+      camera.center = this.position(target.view.rider) as [number, number];
+    }
+    this.map.once('moveend', () => this.finishTerrainFollow(transitionId));
+    this.map.easeTo(camera);
+  }
+
+  private finishTerrainFollow(transitionId: number): void {
+    if (transitionId !== this.terrainTransitionId || this.terrainTransitionStage !== 'follow') {
+      return;
+    }
+    this.terrainTransitionStage = null;
+    const pendingCamera = this.pendingTerrainCamera;
+    this.pendingTerrainCamera = null;
+    if (pendingCamera && this.terrainEnabled) {
+      this.updateCamera(pendingCamera.view, pendingCamera.options);
+    }
+  }
+
+  private resumeTerrainCamera(): void {
+    if (!this.waitingForTerrain || !this.pendingTerrainCamera || !this.terrainEnabled) {
+      return;
+    }
+    if (!this.map.isSourceLoaded(SOURCE_IDS.terrain)) {
+      return;
+    }
+    const pendingCamera = this.pendingTerrainCamera;
+    this.waitingForTerrain = false;
+    this.pendingTerrainCamera = null;
+    this.updateCamera(pendingCamera.view, pendingCamera.options);
   }
 
   private desiredPitch(terrainEnabled: boolean): number {
