@@ -31,9 +31,27 @@ describe('RouteMapProjection', () => {
 
     expect(firstView.rider?.longitude).toBeCloseTo(0.0025, 5);
     expect(secondView.rider?.longitude).toBeCloseTo(0.0075, 5);
-    expect(firstView.completedPaths[0].at(-1)?.longitude).toBeCloseTo(0.0025, 5);
-    expect(secondView.remainingPaths[0][0].longitude).toBeCloseTo(0.0075, 5);
+    expect(firstView.completedPaths[0].coordinates.at(-1)?.longitude).toBeCloseTo(0.0025, 5);
+    expect(secondView.remainingPaths[0].coordinates[0].longitude).toBeCloseTo(0.0075, 5);
+    expect(firstView.completedPaths[0].gradientColor).toBe('#beff2a');
     expect(firstView.headingDegrees).toBeCloseTo(90, 1);
     expect(secondView.headingDegrees).toBeCloseTo(90, 1);
+  });
+
+  it('uses a neutral route color where elevation is unavailable', () => {
+    const segment = new RouteSegment(
+      0,
+      0,
+      [
+        { coordinate: new GeoCoordinate(0, 0), elevationMeters: null },
+        { coordinate: new GeoCoordinate(0, 0.01), elevationMeters: null },
+      ],
+      new RouteProcessingPolicy(0, 100),
+    );
+    const route = new Route('No elevation', [segment]);
+    const view = new RouteMapProjection(route, 0, route.locationAt(0)).project();
+
+    expect(view.remainingPaths).toHaveLength(1);
+    expect(view.remainingPaths[0].gradientColor).toBe('#53616d');
   });
 });

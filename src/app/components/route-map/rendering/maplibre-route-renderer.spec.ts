@@ -15,6 +15,7 @@ const mapMock = vi.hoisted(() => ({
   pitch: 0,
   zoom: 0,
   zoomCalls: 0,
+  paintProperties: [] as { layerId: string; property: string; value: unknown }[],
 }));
 
 vi.mock('maplibre-gl', () => {
@@ -76,6 +77,9 @@ vi.mock('maplibre-gl', () => {
 
     readonly setLayoutProperty = vi.fn();
     readonly setTerrain = vi.fn();
+    setPaintProperty(layerId: string, property: string, value: unknown): void {
+      mapMock.paintProperties.push({ layerId, property, value });
+    }
     easeTo(options: { pitch?: number; zoom?: number }): void {
       if (options.pitch !== undefined) {
         mapMock.pitch = options.pitch;
@@ -153,6 +157,7 @@ describe('MapLibreRouteRenderer', () => {
     mapMock.pitch = 0;
     mapMock.zoom = 0;
     mapMock.zoomCalls = 0;
+    mapMock.paintProperties.length = 0;
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({
       getExtension: () => null,
     } as unknown as WebGL2RenderingContext);
@@ -205,19 +210,46 @@ describe('MapLibreRouteRenderer', () => {
       terrainEnabled: false,
       headingUp: false,
       autoFollow: true,
+      gradientColors: false,
     };
 
     renderer.render(firstView, renderOptions);
     renderer.render(firstView, renderOptions);
     renderer.render(secondView, renderOptions);
     renderer.render(secondView, { ...renderOptions, terrainEnabled: true });
+    renderer.render(secondView, {
+      ...renderOptions,
+      gradientColors: true,
+      terrainEnabled: true,
+    });
+    renderer.render(secondView, { ...renderOptions, terrainEnabled: true });
 
     expect(mapMock.fitBoundsCalls).toBe(2);
     expect(mapMock.resizeCalls).toBe(2);
-    expect(mapMock.markerUpdates).toBe(4);
+    expect(mapMock.markerUpdates).toBe(6);
     expect(mapMock.pitch).toBe(55);
     expect(mapMock.zoom).toBe(15);
     expect(mapMock.zoomCalls).toBe(2);
+    expect(mapMock.paintProperties).toContainEqual({
+      layerId: 'kickr-completed-route',
+      property: 'line-color',
+      value: ['get', 'gradientColor'],
+    });
+    expect(mapMock.paintProperties).toContainEqual({
+      layerId: 'kickr-completed-route',
+      property: 'line-opacity',
+      value: 0.38,
+    });
+    expect(mapMock.paintProperties.at(-4)).toEqual({
+      layerId: 'kickr-remaining-route',
+      property: 'line-color',
+      value: '#d7e1e7',
+    });
+    expect(mapMock.paintProperties.at(-2)).toEqual({
+      layerId: 'kickr-completed-route',
+      property: 'line-color',
+      value: '#beff2a',
+    });
     expect(mapMock.workerUrl).toBe(new URL('maplibre-gl-worker.mjs', document.baseURI).toString());
   });
 

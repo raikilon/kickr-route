@@ -7,6 +7,7 @@ import {
   ElementRef,
   inject,
   input,
+  linkedSignal,
   signal,
   ViewChild,
 } from '@angular/core';
@@ -30,6 +31,11 @@ export class RouteMap implements AfterViewInit {
   protected readonly basemap = signal<RouteMapBasemap>('street');
   protected readonly terrainEnabled = signal(false);
   protected readonly headingUp = signal(false);
+  protected readonly gradientColors = linkedSignal({
+    source: this.route,
+    computation: () => false,
+  });
+  protected readonly gradientColorsAvailable = computed(() => this.route()?.hasElevation ?? false);
   protected readonly followLabel = computed(() => {
     if (this.autoFollow()) {
       return 'Auto-follow on';
@@ -84,6 +90,13 @@ export class RouteMap implements AfterViewInit {
     this.headingUp.update((enabled) => !enabled);
   }
 
+  protected toggleGradientColors(): void {
+    if (!this.gradientColorsAvailable()) {
+      return;
+    }
+    this.gradientColors.update((enabled) => !enabled);
+  }
+
   private async initializeRenderer(element: HTMLDivElement): Promise<void> {
     try {
       const renderer = await MapLibreRouteRenderer.create(element, (available) =>
@@ -116,11 +129,18 @@ export class RouteMap implements AfterViewInit {
     const basemap = this.basemap();
     const terrainEnabled = this.terrainEnabled();
     const headingUp = this.headingUp();
+    const gradientColors = this.gradientColors();
     if (!route || !this.rendererReady() || !this.renderer) {
       return;
     }
     const projection = new RouteMapProjection(route, distanceMeters, position).project();
-    this.renderer.render(projection, { autoFollow, basemap, terrainEnabled, headingUp });
+    this.renderer.render(projection, {
+      autoFollow,
+      basemap,
+      gradientColors,
+      terrainEnabled,
+      headingUp,
+    });
   }
 
   private observeMapSize(element: HTMLDivElement): void {
