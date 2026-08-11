@@ -43,4 +43,21 @@ describe('IndoorBikeDataPacket', () => {
     const data = new DataView(Uint8Array.from([flags, 0, 0, 0]).buffer);
     expect(() => new IndoorBikeDataPacket(data).decode()).toThrow(FtmsPacketError);
   });
+
+  it('accepts and consumes expended energy without exposing its values', () => {
+    const flags = INDOOR_BIKE_DATA_FLAGS.moreData | INDOOR_BIKE_DATA_FLAGS.expendedEnergy;
+    const values = [flags & 0xff, flags >> 8, 0x7b, 0x00, 0xc8, 0x01, 0x05];
+
+    expect(new IndoorBikeDataPacket(new DataView(Uint8Array.from(values).buffer)).decode()).toEqual(
+      {},
+    );
+  });
+
+  it('rejects truncated expended energy data', () => {
+    const flags = INDOOR_BIKE_DATA_FLAGS.moreData | INDOOR_BIKE_DATA_FLAGS.expendedEnergy;
+    const values = [flags & 0xff, flags >> 8, 0x7b, 0x00, 0xc8, 0x01];
+    const packet = new IndoorBikeDataPacket(new DataView(Uint8Array.from(values).buffer));
+
+    expect(() => packet.decode()).toThrow(FtmsPacketError);
+  });
 });

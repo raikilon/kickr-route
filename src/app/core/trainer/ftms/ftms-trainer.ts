@@ -1,20 +1,16 @@
 import { Injectable } from '@angular/core';
-import { fromEvent, Subject, Subscription } from 'rxjs';
+import { Subject } from 'rxjs';
 import { TrainerEnvironment } from '../trainer-environment';
-import { IndoorBikeData, TrainerTelemetry } from '../trainer-telemetry';
 import { Trainer, TrainerConnection } from '../trainer';
 import { FtmsControlPoint } from './ftms-control-point';
-import { FTMS_TARGET_FEATURES, FTMS_UUIDS } from './ftms.constants';
-import { IndoorBikeDataPacket } from './indoor-bike-data-packet';
+import { FtmsGattSession } from './ftms-gatt-session';
 import { TrainerSimulationController } from './trainer-simulation-controller';
 
 @Injectable({ providedIn: 'root' })
 export class FtmsTrainer implements Trainer {
-  private readonly telemetrySubject = new Subject<TrainerTelemetry>();
+  private readonly gattSession = new FtmsGattSession();
   private readonly disconnectedSubject = new Subject<void>();
   private readonly errorSubject = new Subject<Error>();
-  private subscriptions = new Subscription();
-  private device: BluetoothDevice | null = null;
   private controlPoint: FtmsControlPoint | null = null;
   private simulationController: TrainerSimulationController | null = null;
   private environment = TrainerEnvironment.default;
@@ -22,29 +18,25 @@ export class FtmsTrainer implements Trainer {
   private controlGranted = false;
   private gradeControlSupported = false;
   private controlling = false;
-  private intentionalDisconnect = false;
 
-  readonly telemetry$ = this.telemetrySubject.asObservable();
+  readonly telemetry$ = this.gattSession.telemetry$;
   readonly disconnected$ = this.disconnectedSubject.asObservable();
   readonly errors$ = this.errorSubject.asObservable();
 
+  constructor() {
+    this.gattSession.errors$.subscribe((error) => this.errorSubject.next(error));
+    this.gattSession.disconnected$.subscribe(() => this.handleDisconnection());
+  }
+
   async connect(): Promise<TrainerConnection> {
-    this.resetResources();
-    this.intentionalDisconnect = false;
+    this.resetControlState();
     try {
-      const device = await navigator.bluetooth.requestDevice({
-        filters: [{ services: [FTMS_UUIDS.service] }],
-      });
-      this.device = device;
-      this.observeDisconnection(device);
-      const service = await this.connectFitnessMachineService(device);
-      await this.observeIndoorBikeData(service);
-      this.gradeControlSupported = await this.readSimulationSupport(service);
-      return await this.connectControlPoint(service, device.name ?? 'FTMS trainer');
+      const connection = await this.gattSession.connect();
+      this.controlPoint = connection.controlPoint;
+      this.gradeControlSupported = connection.gradeControlSupported;
+      return await this.connectControlPoint(connection.deviceName);
     } catch (error) {
-      this.intentionalDisconnect = true;
-      this.device?.gatt?.disconnect();
-      this.resetResources();
+      this.resetControlState();
       throw this.asError(error);
     }
   }
@@ -95,64 +87,19 @@ export class FtmsTrainer implements Trainer {
   }
 
   async disconnect(): Promise<void> {
-    if (!this.device) {
+    if (!this.gattSession.connected) {
       return;
     }
     try {
       await this.stop();
     } finally {
-      this.intentionalDisconnect = true;
-      this.device.gatt?.disconnect();
-      this.resetResources();
+      this.gattSession.disconnect();
+      this.resetControlState();
     }
   }
 
-  private async connectFitnessMachineService(
-    device: BluetoothDevice,
-  ): Promise<BluetoothRemoteGATTService> {
-    const server = await device.gatt?.connect();
-    if (!server) {
-      throw new Error('The selected trainer does not expose a Bluetooth GATT server.');
-    }
-    return server.getPrimaryService(FTMS_UUIDS.service);
-  }
-
-  private observeDisconnection(device: BluetoothDevice): void {
-    this.subscriptions.add(
-      fromEvent(device, 'gattserverdisconnected').subscribe(() => this.handleDisconnection()),
-    );
-  }
-
-  private async observeIndoorBikeData(service: BluetoothRemoteGATTService): Promise<void> {
-    const characteristic = await service.getCharacteristic(FTMS_UUIDS.indoorBikeData);
-    await characteristic.startNotifications();
-    this.subscriptions.add(
-      fromEvent<Event>(characteristic, 'characteristicvaluechanged').subscribe((event) =>
-        this.decodeTelemetry(event),
-      ),
-    );
-  }
-
-  private async readSimulationSupport(service: BluetoothRemoteGATTService): Promise<boolean> {
-    try {
-      const feature = await service.getCharacteristic(FTMS_UUIDS.feature);
-      const value = await feature.readValue();
-      if (value.byteLength < 8) {
-        return false;
-      }
-      const targetFeatures = value.getUint32(4, true);
-      return (targetFeatures & FTMS_TARGET_FEATURES.indoorBikeSimulationParameters) !== 0;
-    } catch {
-      return false;
-    }
-  }
-
-  private async connectControlPoint(
-    service: BluetoothRemoteGATTService,
-    deviceName: string,
-  ): Promise<TrainerConnection> {
-    const characteristic = await this.findControlPoint(service);
-    if (!characteristic) {
+  private async connectControlPoint(deviceName: string): Promise<TrainerConnection> {
+    if (!this.controlPoint) {
       return {
         deviceName,
         controlState: 'telemetry-only',
@@ -160,7 +107,6 @@ export class FtmsTrainer implements Trainer {
         controlError: null,
       };
     }
-    this.controlPoint = new FtmsControlPoint(characteristic);
     try {
       await this.controlPoint.open();
       await this.controlPoint.requestControl();
@@ -174,16 +120,6 @@ export class FtmsTrainer implements Trainer {
         gradeControlSupported: false,
         controlError: `Trainer telemetry is available, but control was denied: ${this.asError(error).message}`,
       };
-    }
-  }
-
-  private async findControlPoint(
-    service: BluetoothRemoteGATTService,
-  ): Promise<BluetoothRemoteGATTCharacteristic | null> {
-    try {
-      return await service.getCharacteristic(FTMS_UUIDS.controlPoint);
-    } catch {
-      return null;
     }
   }
 
@@ -209,49 +145,18 @@ export class FtmsTrainer implements Trainer {
       return;
     }
     this.simulationController = new TrainerSimulationController(this.controlPoint);
-    this.subscriptions.add(
-      this.simulationController.errors$.subscribe((error) => this.errorSubject.next(error)),
-    );
-  }
-
-  private decodeTelemetry(event: Event): void {
-    const value = (event.target as BluetoothRemoteGATTCharacteristic).value;
-    if (!value) {
-      return;
-    }
-    try {
-      const indoorBikeData = new IndoorBikeDataPacket(value).decode();
-      this.telemetrySubject.next(this.normalizeTelemetry(indoorBikeData));
-    } catch (error) {
-      this.errorSubject.next(this.asError(error));
-    }
-  }
-
-  private normalizeTelemetry(indoorBikeData: IndoorBikeData): TrainerTelemetry {
-    return {
-      timestamp: performance.now(),
-      speedKph: indoorBikeData.speedKph,
-      cadenceRpm: indoorBikeData.cadenceRpm,
-      powerWatts: indoorBikeData.powerWatts,
-    };
+    this.simulationController.errors$.subscribe((error) => this.errorSubject.next(error));
   }
 
   private handleDisconnection(): void {
-    const wasUnexpected = !this.intentionalDisconnect;
-    this.resetResources();
-    if (wasUnexpected) {
-      this.disconnectedSubject.next();
-    }
+    this.resetControlState();
+    this.disconnectedSubject.next();
   }
 
-  private resetResources(): void {
-    this.subscriptions.unsubscribe();
-    this.subscriptions = new Subscription();
+  private resetControlState(): void {
     this.simulationController?.dispose();
-    this.controlPoint?.dispose();
     this.simulationController = null;
     this.controlPoint = null;
-    this.device = null;
     this.controlGranted = false;
     this.gradeControlSupported = false;
     this.controlling = false;

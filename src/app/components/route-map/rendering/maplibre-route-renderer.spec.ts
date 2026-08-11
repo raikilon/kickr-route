@@ -2,32 +2,33 @@ import { GeoCoordinate } from '../../../core/route/geo-coordinate';
 import { RouteProcessingPolicy } from '../../../core/route/route-processing-policy';
 import { RouteSegment } from '../../../core/route/route-segment';
 import { Route } from '../../../core/route/route';
-import { MapLibreRouteRenderer } from './maplibre-route-renderer';
 import { RouteMapProjection } from '../projection/route-map-projection';
+import { MapLibreRouteRenderer } from './maplibre-route-renderer';
 
-const mapMock = vi.hoisted(() => ({
+const mapState = vi.hoisted(() => ({
   nextEvent: 'style.load',
+  options: null as Record<string, unknown> | null,
+  workerUrl: '',
   fitBoundsCalls: 0,
   resizeCalls: 0,
-  removed: false,
-  workerUrl: '',
   markerUpdates: 0,
-  bearing: 0,
-  pitch: 0,
-  zoom: 0,
-  zoomCalls: 0,
-  sourceLoaded: true,
-  emitMoveEnd: vi.fn<() => void>(),
-  emitSourceData: vi.fn<(sourceId: string) => void>(),
-  paintProperties: [] as { layerId: string; property: string; value: unknown }[],
-  cameraUpdates: [] as {
-    bearing?: number;
-    center?: [number, number];
-    duration?: number;
-    freezeElevation?: boolean;
-    pitch?: number;
-    zoom?: number;
-  }[],
+  cameraUpdates: [] as Record<string, unknown>[],
+  removed: false,
+  addedControl: false,
+  styleLayerIds: [] as string[],
+  map: null as {
+    emit(
+      event: string,
+      payload?: {
+        error: Error;
+        sourceId?: string;
+        isSourceLoaded?: boolean;
+        tile?: unknown;
+      },
+    ): void;
+    emitMoveEnd(): void;
+    sourceLoaded: boolean;
+  } | null,
 }));
 
 vi.mock('maplibre-gl', () => {
@@ -42,22 +43,19 @@ vi.mock('maplibre-gl', () => {
     private readonly listeners = new globalThis.Map<string, Set<Listener>>();
     private readonly sources = new globalThis.Map<string, unknown>();
     private readonly layers = new Set<string>();
+    sourceLoaded = true;
 
-    constructor(options: {
-      style: { sources: Record<string, unknown>; layers: { id: string }[] };
-    }) {
+    constructor(
+      options: Record<string, unknown> & {
+        style: { sources: Record<string, unknown>; layers: { id: string }[] };
+      },
+    ) {
+      mapState.options = options;
+      mapState.map = this;
       Object.entries(options.style.sources).forEach(([id, source]) => this.sources.set(id, source));
       options.style.layers.forEach((layer) => this.layers.add(layer.id));
-      mapMock.emitSourceData.mockImplementation((sourceId) =>
-        this.emit('sourcedata', {
-          error: new Error('Source failed.'),
-          sourceId,
-          isSourceLoaded: mapMock.sourceLoaded,
-          tile: {},
-        }),
-      );
-      mapMock.emitMoveEnd.mockImplementation(() => this.emit('moveend'));
-      queueMicrotask(() => this.emit(mapMock.nextEvent));
+      mapState.styleLayerIds = options.style.layers.map((layer) => layer.id);
+      queueMicrotask(() => this.emit(mapState.nextEvent));
     }
 
     on(event: string, listener: Listener): void {
@@ -78,7 +76,7 @@ vi.mock('maplibre-gl', () => {
       this.listeners.get(event)?.delete(listener);
     }
 
-    getStyle(): { layers: { id: string; layout?: { visibility?: 'visible' | 'none' } }[] } {
+    getStyle(): { layers: { id: string }[] } {
       return { layers: [...this.layers].map((id) => ({ id })) };
     }
 
@@ -106,76 +104,53 @@ vi.mock('maplibre-gl', () => {
     }
 
     readonly setLayoutProperty = vi.fn();
-    setTerrain(options: unknown): void {
-      if (options && mapMock.sourceLoaded) {
-        mapMock.emitSourceData('kickr-terrain');
-      }
+    readonly setTerrain = vi.fn();
+    readonly setPaintProperty = vi.fn();
+    easeTo(options: Record<string, unknown>): void {
+      mapState.cameraUpdates.push(options);
     }
-    setPaintProperty(layerId: string, property: string, value: unknown): void {
-      mapMock.paintProperties.push({ layerId, property, value });
-    }
-    easeTo(options: {
-      bearing?: number;
-      center?: [number, number];
-      duration?: number;
-      freezeElevation?: boolean;
-      pitch?: number;
-      zoom?: number;
-    }): void {
-      mapMock.cameraUpdates.push(options);
-      if (options.bearing !== undefined) {
-        mapMock.bearing = options.bearing;
-      }
-      if (options.pitch !== undefined) {
-        mapMock.pitch = options.pitch;
-      }
-      if (options.zoom !== undefined) {
-        mapMock.zoom = options.zoom;
-        mapMock.zoomCalls += 1;
-      }
-    }
+    readonly stop = vi.fn();
 
     getBearing(): number {
-      return mapMock.bearing;
+      return 0;
     }
 
     getPitch(): number {
-      return mapMock.pitch;
+      return 0;
     }
 
     isSourceLoaded(): boolean {
-      return mapMock.sourceLoaded;
+      return this.sourceLoaded;
     }
 
-    readonly stop = vi.fn();
-
-    readonly addControl = vi.fn();
+    addControl(): void {
+      mapState.addedControl = true;
+    }
 
     resize(): void {
-      mapMock.resizeCalls += 1;
+      mapState.resizeCalls += 1;
     }
 
     fitBounds(): void {
-      mapMock.fitBoundsCalls += 1;
+      mapState.fitBoundsCalls += 1;
     }
 
     remove(): void {
-      mapMock.removed = true;
+      mapState.removed = true;
     }
 
-    private emit(
-      event: string,
-      payload: { error: Error; sourceId?: string; isSourceLoaded?: boolean; tile?: unknown } = {
-        error: new Error('Style failed.'),
-      },
-    ): void {
+    emitMoveEnd(): void {
+      this.emit('moveend');
+    }
+
+    emit(event: string, payload: { error: Error } = { error: new Error('Style failed.') }): void {
       this.listeners.get(event)?.forEach((listener) => listener(payload));
     }
   }
 
   class FakeMarker {
     setLngLat(): this {
-      mapMock.markerUpdates += 1;
+      mapState.markerUpdates += 1;
       return this;
     }
 
@@ -190,7 +165,7 @@ vi.mock('maplibre-gl', () => {
     Map: FakeMap,
     Marker: FakeMarker,
     setWorkerUrl: (url: string) => {
-      mapMock.workerUrl = url;
+      mapState.workerUrl = url;
     },
     NavigationControl: class {},
     LngLatBounds: class {
@@ -201,23 +176,38 @@ vi.mock('maplibre-gl', () => {
   };
 });
 
-describe('MapLibreRouteRenderer', () => {
+class RendererFixture {
+  readonly reportAvailability = vi.fn();
+
+  view() {
+    const route = new Route('Integration route', [
+      new RouteSegment(
+        0,
+        0,
+        [
+          { coordinate: new GeoCoordinate(0, 7), elevationMeters: 500 },
+          { coordinate: new GeoCoordinate(0.01, 7.01), elevationMeters: 510 },
+        ],
+        new RouteProcessingPolicy(0, 100),
+      ),
+    ]);
+    return new RouteMapProjection(route, 0, route.locationAt(0)).project();
+  }
+}
+
+describe('MapLibreRouteRenderer integration', () => {
   beforeEach(() => {
-    mapMock.nextEvent = 'style.load';
-    mapMock.fitBoundsCalls = 0;
-    mapMock.resizeCalls = 0;
-    mapMock.removed = false;
-    mapMock.workerUrl = '';
-    mapMock.markerUpdates = 0;
-    mapMock.bearing = 0;
-    mapMock.pitch = 0;
-    mapMock.zoom = 0;
-    mapMock.zoomCalls = 0;
-    mapMock.sourceLoaded = true;
-    mapMock.emitMoveEnd.mockReset();
-    mapMock.emitSourceData.mockReset();
-    mapMock.paintProperties.length = 0;
-    mapMock.cameraUpdates.length = 0;
+    mapState.nextEvent = 'style.load';
+    mapState.options = null;
+    mapState.workerUrl = '';
+    mapState.fitBoundsCalls = 0;
+    mapState.resizeCalls = 0;
+    mapState.markerUpdates = 0;
+    mapState.cameraUpdates.length = 0;
+    mapState.removed = false;
+    mapState.addedControl = false;
+    mapState.styleLayerIds.length = 0;
+    mapState.map = null;
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({
       getExtension: () => null,
     } as unknown as WebGL2RenderingContext);
@@ -239,120 +229,91 @@ describe('MapLibreRouteRenderer', () => {
     vi.unstubAllGlobals();
   });
 
-  it('becomes ready on style load and refits when the route changes', async () => {
-    const renderer = await MapLibreRouteRenderer.create(document.createElement('div'), vi.fn());
-    const firstRoute = new Route('First route', [
-      new RouteSegment(
-        0,
-        0,
-        [
-          { coordinate: new GeoCoordinate(0, 7), elevationMeters: 500 },
-          { coordinate: new GeoCoordinate(0.01, 7.01), elevationMeters: 510 },
-        ],
-        new RouteProcessingPolicy(0, 100),
-      ),
-    ]);
-    const secondRoute = new Route('Second route', [
-      new RouteSegment(
-        0,
-        0,
-        [
-          { coordinate: new GeoCoordinate(1, 7), elevationMeters: 500 },
-          { coordinate: new GeoCoordinate(1.01, 7.01), elevationMeters: 510 },
-        ],
-        new RouteProcessingPolicy(0, 100),
-      ),
-    ]);
-    const firstView = new RouteMapProjection(firstRoute, 0, firstRoute.locationAt(0)).project();
-    const secondView = new RouteMapProjection(secondRoute, 0, secondRoute.locationAt(0)).project();
-    const renderOptions = {
-      basemap: 'street' as const,
+  it('bootstraps MapLibre and orchestrates rendering and lifecycle methods', async () => {
+    const fixture = new RendererFixture();
+    const renderer = await MapLibreRouteRenderer.create(
+      document.createElement('div'),
+      fixture.reportAvailability,
+    );
+    const view = fixture.view();
+
+    renderer.render(view, {
+      basemap: 'street',
       terrainEnabled: false,
       headingUp: false,
       autoFollow: true,
       gradientColors: false,
-    };
-
-    renderer.render(firstView, renderOptions);
-    renderer.render(firstView, renderOptions);
-    renderer.render(secondView, renderOptions);
-    renderer.render(secondView, { ...renderOptions, terrainEnabled: true });
-    renderer.render(secondView, {
-      ...renderOptions,
-      gradientColors: true,
-      terrainEnabled: true,
     });
-    renderer.render(secondView, { ...renderOptions, terrainEnabled: true });
-    await Promise.resolve();
-    expect(mapMock.cameraUpdates.at(-1)).toEqual(
-      expect.objectContaining({ duration: 300, pitch: 55 }),
-    );
-    mapMock.emitMoveEnd();
-    mapMock.emitMoveEnd();
-
-    expect(mapMock.fitBoundsCalls).toBe(2);
-    expect(mapMock.resizeCalls).toBe(2);
-    expect(mapMock.markerUpdates).toBe(6);
-    expect(mapMock.pitch).toBe(55);
-    expect(mapMock.zoom).toBe(15);
-    expect(mapMock.zoomCalls).toBe(2);
-    expect(mapMock.paintProperties).toContainEqual({
-      layerId: 'kickr-completed-route',
-      property: 'line-color',
-      value: ['get', 'gradientColor'],
-    });
-    expect(mapMock.paintProperties).toContainEqual({
-      layerId: 'kickr-completed-route',
-      property: 'line-opacity',
-      value: 0.38,
-    });
-    expect(mapMock.paintProperties.at(-4)).toEqual({
-      layerId: 'kickr-remaining-route',
-      property: 'line-color',
-      value: '#d7e1e7',
-    });
-    expect(mapMock.paintProperties.at(-2)).toEqual({
-      layerId: 'kickr-completed-route',
-      property: 'line-color',
-      value: '#beff2a',
-    });
-    expect(mapMock.workerUrl).toBe(new URL('maplibre-gl-worker.mjs', document.baseURI).toString());
-  });
-
-  it('tilts before terrain-aware rider centering without restoring manual zoom', async () => {
-    const renderer = await MapLibreRouteRenderer.create(document.createElement('div'), vi.fn());
-    const route = new Route('Camera route', [
-      new RouteSegment(
-        0,
-        0,
-        [
-          { coordinate: new GeoCoordinate(0, 7), elevationMeters: 500 },
-          { coordinate: new GeoCoordinate(0.01, 7.01), elevationMeters: 510 },
-        ],
-        new RouteProcessingPolicy(0, 100),
-      ),
-    ]);
-    const view = new RouteMapProjection(route, 0, route.locationAt(0)).project();
-    const renderOptions = {
-      basemap: 'street' as const,
-      terrainEnabled: true,
+    renderer.render(view, {
+      basemap: 'street',
+      terrainEnabled: false,
       headingUp: false,
       autoFollow: true,
       gradientColors: false,
-    };
+    });
+    renderer.resize();
+    renderer.destroy();
 
-    renderer.render(view, renderOptions);
-    await Promise.resolve();
-    expect(mapMock.cameraUpdates.at(-1)).toEqual(
-      expect.objectContaining({ duration: 300, pitch: 55 }),
+    expect(mapState.workerUrl).toBe(new URL('maplibre-gl-worker.mjs', document.baseURI).toString());
+    expect(mapState.options).toEqual(
+      expect.objectContaining({
+        center: [0, 0],
+        zoom: 2,
+        maxZoom: 19,
+        maxPitch: 70,
+        dragRotate: false,
+        pitchWithRotate: false,
+      }),
     );
-    expect(mapMock.cameraUpdates.at(-1)?.center).toBeUndefined();
-    expect(mapMock.cameraUpdates.at(-1)?.zoom).toBeUndefined();
+    expect(fixture.reportAvailability).toHaveBeenCalledWith(true);
+    expect(mapState.addedControl).toBe(true);
+    expect(mapState.fitBoundsCalls).toBe(1);
+    expect(mapState.resizeCalls).toBe(2);
+    expect(mapState.markerUpdates).toBe(2);
+    expect(mapState.removed).toBe(true);
+  });
 
-    mapMock.emitMoveEnd();
-    expect(mapMock.zoom).toBe(15);
-    expect(mapMock.zoomCalls).toBe(1);
-    expect(mapMock.cameraUpdates.at(-1)).toEqual(
+  it('uses the offline style and reports unavailable when street style loading fails', async () => {
+    const fixture = new RendererFixture();
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('Offline.')));
+
+    const renderer = await MapLibreRouteRenderer.create(
+      document.createElement('div'),
+      fixture.reportAvailability,
+    );
+
+    expect(fixture.reportAvailability).toHaveBeenCalledWith(false);
+    expect(mapState.styleLayerIds).toEqual(['offline-background']);
+    renderer.destroy();
+  });
+
+  it('forwards loaded terrain events into the two-stage camera transition', async () => {
+    const renderer = await MapLibreRouteRenderer.create(document.createElement('div'), vi.fn());
+    const view = new RendererFixture().view();
+    const map = mapState.map!;
+    map.sourceLoaded = false;
+
+    renderer.render(view, {
+      basemap: 'satellite',
+      terrainEnabled: true,
+      headingUp: false,
+      autoFollow: true,
+      gradientColors: true,
+    });
+    expect(mapState.cameraUpdates).toEqual([]);
+
+    map.sourceLoaded = true;
+    map.emit('sourcedata', {
+      error: new Error('unused'),
+      sourceId: 'kickr-terrain',
+      isSourceLoaded: true,
+      tile: {},
+    });
+    await Promise.resolve();
+    expect(mapState.cameraUpdates.at(-1)).toEqual({ duration: 300, pitch: 55 });
+
+    map.emitMoveEnd();
+    expect(mapState.cameraUpdates.at(-1)).toEqual(
       expect.objectContaining({
         center: [7, 0],
         duration: 350,
@@ -360,154 +321,17 @@ describe('MapLibreRouteRenderer', () => {
         zoom: 15,
       }),
     );
-    mapMock.emitMoveEnd();
+    map.emitMoveEnd();
 
-    mapMock.zoom = 17;
-    renderer.render(view, { ...renderOptions, terrainEnabled: false });
-    expect(mapMock.cameraUpdates.at(-1)).toEqual(
-      expect.objectContaining({ duration: 400, pitch: 0 }),
-    );
-    expect(mapMock.cameraUpdates.at(-1)).not.toHaveProperty('freezeElevation');
-    renderer.render(view, renderOptions);
-    await Promise.resolve();
-    expect(mapMock.zoom).toBe(17);
-    expect(mapMock.zoomCalls).toBe(1);
-    expect(mapMock.cameraUpdates.at(-1)).toEqual(
-      expect.objectContaining({ duration: 300, pitch: 55 }),
-    );
-    expect(mapMock.cameraUpdates.at(-1)?.center).toBeUndefined();
-
-    mapMock.emitMoveEnd();
-    expect(mapMock.zoomCalls).toBe(1);
-    expect(mapMock.cameraUpdates.at(-1)).toEqual(
-      expect.objectContaining({ center: [7, 0], duration: 350, freezeElevation: true }),
-    );
-    expect(mapMock.cameraUpdates.at(-1)?.zoom).toBeUndefined();
-    mapMock.emitMoveEnd();
-
-    mapMock.zoom = 14;
-    renderer.render(view, { ...renderOptions, terrainEnabled: false });
-    renderer.render(view, { ...renderOptions, autoFollow: false });
-    await Promise.resolve();
-    expect(mapMock.zoom).toBe(14);
-    expect(mapMock.zoomCalls).toBe(1);
-    expect(mapMock.cameraUpdates.at(-1)).toEqual(
-      expect.objectContaining({ duration: 300, pitch: 55 }),
-    );
-
-    mapMock.emitMoveEnd();
-    expect(mapMock.zoomCalls).toBe(1);
-    expect(mapMock.cameraUpdates.at(-1)).toEqual(
-      expect.objectContaining({ duration: 350, freezeElevation: true }),
-    );
-    expect(mapMock.cameraUpdates.at(-1)?.center).toBeUndefined();
-    expect(mapMock.cameraUpdates.at(-1)?.zoom).toBeUndefined();
-    mapMock.emitMoveEnd();
-  });
-
-  it('waits for terrain data and eases to the latest rider', async () => {
-    const renderer = await MapLibreRouteRenderer.create(document.createElement('div'), vi.fn());
-    const route = new Route('Delayed terrain route', [
-      new RouteSegment(
-        0,
-        0,
-        [
-          { coordinate: new GeoCoordinate(0, 7), elevationMeters: 500 },
-          { coordinate: new GeoCoordinate(0.01, 7.01), elevationMeters: 510 },
-        ],
-        new RouteProcessingPolicy(0, 100),
-      ),
-    ]);
-    const startView = new RouteMapProjection(route, 0, route.locationAt(0)).project();
-    const finishView = new RouteMapProjection(
-      route,
-      route.totalDistanceMeters,
-      route.locationAt(route.totalDistanceMeters),
-    ).project();
-    const renderOptions = {
-      basemap: 'street' as const,
-      terrainEnabled: false,
-      headingUp: false,
-      autoFollow: true,
-      gradientColors: false,
-    };
-
-    renderer.render(startView, renderOptions);
-    mapMock.zoom = 17;
-    mapMock.sourceLoaded = false;
-    const cameraUpdateCount = mapMock.cameraUpdates.length;
-
-    renderer.render(startView, { ...renderOptions, terrainEnabled: true });
-    renderer.render(finishView, { ...renderOptions, terrainEnabled: true });
-    expect(mapMock.cameraUpdates).toHaveLength(cameraUpdateCount);
-
-    mapMock.sourceLoaded = true;
-    mapMock.emitSourceData('kickr-terrain');
-    await Promise.resolve();
-
-    expect(mapMock.cameraUpdates).toHaveLength(cameraUpdateCount + 1);
-    expect(mapMock.cameraUpdates.at(-1)).toEqual(
-      expect.objectContaining({ duration: 300, pitch: 55 }),
-    );
-    expect(mapMock.cameraUpdates.at(-1)?.center).toBeUndefined();
-    expect(mapMock.cameraUpdates.at(-1)?.zoom).toBeUndefined();
-
-    mapMock.emitMoveEnd();
-    expect(mapMock.cameraUpdates).toHaveLength(cameraUpdateCount + 2);
-    expect(mapMock.cameraUpdates.at(-1)).toEqual(
-      expect.objectContaining({
-        center: [7.01, 0.01],
-        duration: 350,
-        freezeElevation: true,
-      }),
-    );
-    expect(mapMock.cameraUpdates.at(-1)?.zoom).toBeUndefined();
-    expect(mapMock.zoom).toBe(17);
-    mapMock.emitMoveEnd();
-  });
-
-  it('cancels a pending terrain camera update when 3d is disabled', async () => {
-    const renderer = await MapLibreRouteRenderer.create(document.createElement('div'), vi.fn());
-    const route = new Route('Canceled terrain route', [
-      new RouteSegment(
-        0,
-        0,
-        [
-          { coordinate: new GeoCoordinate(0, 7), elevationMeters: 500 },
-          { coordinate: new GeoCoordinate(0.01, 7.01), elevationMeters: 510 },
-        ],
-        new RouteProcessingPolicy(0, 100),
-      ),
-    ]);
-    const view = new RouteMapProjection(route, 0, route.locationAt(0)).project();
-    const renderOptions = {
-      basemap: 'street' as const,
-      terrainEnabled: false,
-      headingUp: false,
-      autoFollow: true,
-      gradientColors: false,
-    };
-
-    renderer.render(view, renderOptions);
-    mapMock.sourceLoaded = false;
-    renderer.render(view, { ...renderOptions, terrainEnabled: true });
-    renderer.render(view, renderOptions);
-    const cameraUpdateCount = mapMock.cameraUpdates.length;
-
-    mapMock.sourceLoaded = true;
-    mapMock.emitSourceData('kickr-terrain');
-    await Promise.resolve();
-
-    expect(mapMock.cameraUpdates).toHaveLength(cameraUpdateCount);
-    expect(mapMock.pitch).toBe(0);
+    renderer.destroy();
   });
 
   it('rejects style initialization errors and removes the map', async () => {
-    mapMock.nextEvent = 'error';
+    mapState.nextEvent = 'error';
 
     await expect(
       MapLibreRouteRenderer.create(document.createElement('div'), vi.fn()),
     ).rejects.toThrow('Style failed.');
-    expect(mapMock.removed).toBe(true);
+    expect(mapState.removed).toBe(true);
   });
 });

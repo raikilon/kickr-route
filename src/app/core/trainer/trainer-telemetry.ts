@@ -11,7 +11,4 @@ export interface IndoorBikeData extends Omit<TrainerTelemetry, 'timestamp'> {
   readonly totalDistanceMeters?: number;
   readonly resistanceLevel?: number;
   readonly averagePowerWatts?: number;
-  readonly totalEnergyKcal?: number;
-  readonly energyPerHourKcal?: number;
-  readonly energyPerMinuteKcal?: number;
 }

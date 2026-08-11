@@ -6,6 +6,7 @@ import { TrainerService } from '../trainer/trainer.service';
 import { TrainerTelemetry } from '../trainer/trainer-telemetry';
 import { RideSession, RideStatus } from './ride-session';
 import { RideSummary } from './ride-summary';
+import { RideTicker } from './ride-ticker';
 
 const TELEMETRY_FRESHNESS_MILLISECONDS = 2_000;
 
@@ -21,9 +22,10 @@ export class RideService {
   private readonly elapsedSecondsSignal = signal(0);
   private readonly distanceMetersSignal = signal(0);
   private readonly summarySignal = signal<RideSummary | null>(null);
+  private readonly ticker = new RideTicker((currentTime, elapsedSeconds) =>
+    this.updateRide(currentTime, elapsedSeconds),
+  );
   private session: RideSession | null = null;
-  private timer: ReturnType<typeof setInterval> | null = null;
-  private lastUpdateTime = 0;
 
   readonly route = this.routeSignal.asReadonly();
   readonly status = this.statusSignal.asReadonly();
@@ -74,7 +76,7 @@ export class RideService {
   constructor() {
     effect(() => this.handleTrainerConnectionChange(this.trainer.connectionState()));
     effect(() => this.screenWakeLock.setRequired(this.shouldKeepScreenAwake(this.statusSignal())));
-    this.destroyRef.onDestroy(() => this.stopTimer());
+    this.destroyRef.onDestroy(() => this.ticker.stop());
   }
 
   setRoute(route: Route): boolean {
@@ -92,7 +94,7 @@ export class RideService {
     if (!this.canChangeRoute()) {
       return;
     }
-    this.stopTimer();
+    this.ticker.stop();
     this.session = null;
     this.routeSignal.set(null);
     this.summarySignal.set(null);
@@ -114,7 +116,7 @@ export class RideService {
     }
     session.start();
     this.summarySignal.set(null);
-    this.beginTimer();
+    this.ticker.start();
     this.publishSession();
     this.sendCurrentGradient();
   }
@@ -123,8 +125,8 @@ export class RideService {
     if (!this.session || this.session.status !== 'riding') {
       return;
     }
-    this.advanceSessionToNow();
-    this.stopTimer();
+    this.flushSession();
+    this.ticker.stop();
     this.session.pause();
     this.publishSession();
     await this.trainer.pause();
@@ -139,7 +141,7 @@ export class RideService {
     }
     await this.trainer.startOrResume();
     this.session.resume();
-    this.beginTimer();
+    this.ticker.start();
     this.publishSession();
     this.sendCurrentGradient();
   }
@@ -149,7 +151,7 @@ export class RideService {
       return;
     }
     if (this.session.status === 'riding') {
-      this.advanceSessionToNow();
+      this.flushSession();
     }
     this.finishSession();
     await this.trainer.stop();
@@ -165,11 +167,11 @@ export class RideService {
     this.publishSession();
   }
 
-  private updateRide(): void {
+  private updateRide(currentTime: number, elapsedSeconds: number): void {
     if (!this.session || this.session.status !== 'riding') {
       return;
     }
-    this.advanceSessionToNow();
+    this.advanceSession(currentTime, elapsedSeconds);
     this.sendCurrentGradient();
     if (!this.session.hasCompletedRoute()) {
       return;
@@ -178,22 +180,27 @@ export class RideService {
     void this.trainer.stop();
   }
 
-  private advanceSessionToNow(): void {
+  private advanceSession(currentTime: number, elapsedSeconds: number): void {
     if (!this.session || this.session.status !== 'riding') {
       return;
     }
-    const currentTime = performance.now();
-    const elapsedSeconds = Math.max(0, (currentTime - this.lastUpdateTime) / 1_000);
-    this.lastUpdateTime = currentTime;
     this.session.advance(this.freshTelemetry(currentTime), elapsedSeconds);
     this.publishSession();
+  }
+
+  private flushSession(): void {
+    const tick = this.ticker.flush();
+    if (!tick) {
+      return;
+    }
+    this.advanceSession(tick.currentTime, tick.elapsedSeconds);
   }
 
   private finishSession(): void {
     if (!this.session) {
       return;
     }
-    this.stopTimer();
+    this.ticker.stop();
     this.summarySignal.set(this.session.finish());
     this.publishSession();
   }
@@ -205,20 +212,6 @@ export class RideService {
     this.statusSignal.set(this.session.status);
     this.elapsedSecondsSignal.set(this.session.elapsedSeconds);
     this.distanceMetersSignal.set(this.session.completedDistanceMeters);
-  }
-
-  private beginTimer(): void {
-    this.stopTimer();
-    this.lastUpdateTime = performance.now();
-    this.timer = setInterval(() => this.updateRide(), 250);
-  }
-
-  private stopTimer(): void {
-    if (this.timer === null) {
-      return;
-    }
-    clearInterval(this.timer);
-    this.timer = null;
   }
 
   private sendCurrentGradient(): void {
@@ -236,8 +229,8 @@ export class RideService {
     if (this.session.status !== 'riding') {
       return;
     }
-    this.advanceSessionToNow();
-    this.stopTimer();
+    this.flushSession();
+    this.ticker.stop();
     this.session.pause();
     this.publishSession();
   }

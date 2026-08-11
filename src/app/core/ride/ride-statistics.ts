@@ -25,10 +25,6 @@ class WeightedMetric {
     return this.maximumValue;
   }
 
-  total(): number {
-    return this.weightedTotal;
-  }
-
   private isValid(value: number | undefined): value is number {
     return value !== undefined && Number.isFinite(value) && value >= 0;
   }
@@ -70,9 +66,5 @@ export class RideStatistics {
 
   get maximumSpeedKph(): number {
     return this.speed.maximum();
-  }
-
-  get estimatedEnergyKilojoules(): number {
-    return this.power.total() / 1_000;
   }
 }
