@@ -41,6 +41,11 @@ class PacketCursor {
     return leastSignificantByte + (middleByte << 8) + (mostSignificantByte << 16);
   }
 
+  skip(length: number): void {
+    this.ensureAvailable(length);
+    this.offset += length;
+  }
+
   private ensureAvailable(length: number): void {
     if (this.offset + length > this.data.byteLength) {
       throw new FtmsPacketError(
@@ -109,9 +114,7 @@ export class IndoorBikeDataPacket {
     if (!this.hasFlag(INDOOR_BIKE_DATA_FLAGS.expendedEnergy)) {
       return;
     }
-    this.decoded.totalEnergyKcal = this.cursor.readUint16();
-    this.decoded.energyPerHourKcal = this.cursor.readUint16();
-    this.decoded.energyPerMinuteKcal = this.cursor.readUint8();
+    this.cursor.skip(5);
   }
 
   private hasFlag(flag: number): boolean {
@@ -128,7 +131,4 @@ interface MutableIndoorBikeData {
   resistanceLevel?: number;
   powerWatts?: number;
   averagePowerWatts?: number;
-  totalEnergyKcal?: number;
-  energyPerHourKcal?: number;
-  energyPerMinuteKcal?: number;
 }
