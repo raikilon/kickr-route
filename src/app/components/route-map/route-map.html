@@ -1,4 +1,4 @@
-<section class="map-shell" aria-label="Route map">
+<section #mapShell class="map-shell" [class.fullscreen]="isFullscreen()" aria-label="Route map">
   <div #mapContainer class="map"></div>
   <div class="map-controls basemap-controls" aria-label="Map type">
     <div class="control-group">
@@ -19,8 +19,6 @@
         Satellite
       </button>
     </div>
-  </div>
-  <div class="map-controls dimension-controls" aria-label="Map dimension">
     <div class="control-group">
       <button
         type="button"
@@ -32,6 +30,31 @@
       </button>
     </div>
   </div>
+  @if (fullscreenAvailable()) {
+    <div class="map-controls dimension-controls" aria-label="Map display">
+      <div class="control-group">
+        <button
+          type="button"
+          class="icon-button"
+          [class.active]="isFullscreen()"
+          [attr.aria-pressed]="isFullscreen()"
+          [attr.aria-label]="fullscreenLabel() + ' route map'"
+          [attr.title]="fullscreenLabel()"
+          (click)="toggleFullscreen()"
+        >
+          @if (isFullscreen()) {
+            <svg width="16" height="16" viewBox="0 0 20 20" aria-hidden="true" focusable="false">
+              <path d="M3 7h4V3M13 3v4h4M17 13h-4v4M7 17v-4H3" />
+            </svg>
+          } @else {
+            <svg width="16" height="16" viewBox="0 0 20 20" aria-hidden="true" focusable="false">
+              <path d="M7 3H3v4M13 3h4v4M17 13v4h-4M7 17H3v-4" />
+            </svg>
+          }
+        </button>
+      </div>
+    </div>
+  }
   <div class="map-controls tracking-controls" aria-label="Map tracking">
     <div class="control-group">
       <button
@@ -65,6 +88,58 @@
       </button>
     </div>
   </div>
+  @if (isFullscreen()) {
+    <aside class="ride-metrics" aria-label="Live ride statistics">
+      <article class="ride-metric metric-power">
+        <span class="metric-label">Power</span>
+        <div class="metric-reading">
+          <strong>{{ powerWatts().toFixed(0) }}</strong>
+          <span>W</span>
+        </div>
+      </article>
+      <article class="ride-metric">
+        <span class="metric-label">Cadence</span>
+        <div class="metric-reading">
+          <strong>{{ cadenceRpm().toFixed(0) }}</strong>
+          <span>rpm</span>
+        </div>
+      </article>
+      <article class="ride-metric">
+        <span class="metric-label">Speed</span>
+        <div class="metric-reading">
+          <strong>{{ speedKph().toFixed(1) }}</strong>
+          <span>km/h</span>
+        </div>
+      </article>
+      <article class="ride-metric">
+        <span class="metric-label">Gradient</span>
+        <div class="metric-reading">
+          <strong>{{ ride.currentGradientPercent().toFixed(1) }}</strong>
+          <span>%</span>
+        </div>
+      </article>
+      <article
+        class="ride-metric metric-distance"
+        role="progressbar"
+        aria-label="Route completion"
+        aria-valuemin="0"
+        aria-valuemax="100"
+        [attr.aria-valuenow]="ride.completionPercentage()"
+      >
+        <span class="metric-label">Distance</span>
+        <div class="metric-reading">
+          <strong>{{ (ride.distanceMeters() / 1000).toFixed(2) }}</strong>
+          <span>km · {{ ride.completionPercentage().toFixed(1) }}%</span>
+        </div>
+      </article>
+      <article class="ride-metric metric-time">
+        <span class="metric-label">Time</span>
+        <div class="metric-reading">
+          <strong>{{ ride.elapsedSeconds() | duration }}</strong>
+        </div>
+      </article>
+    </aside>
+  }
   @if (mapError()) {
     <p class="offline-warning" role="alert">{{ mapError() }} Route tracking remains active.</p>
   } @else if (tileWarning()) {

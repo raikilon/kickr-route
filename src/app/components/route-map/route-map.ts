@@ -1,3 +1,4 @@
+import { DOCUMENT } from '@angular/common';
 import {
   AfterViewInit,
   Component,
@@ -11,17 +12,21 @@ import {
   signal,
   ViewChild,
 } from '@angular/core';
+import { RideService } from '../../core/ride/ride.service';
 import { RouteLocation } from '../../core/route/route-point';
 import { Route } from '../../core/route/route';
+import { DurationPipe } from '../../shared/duration.pipe';
 import { RouteMapProjection } from './projection/route-map-projection';
 import { MapLibreRouteRenderer, type RouteMapBasemap } from './rendering/maplibre-route-renderer';
 
 @Component({
   selector: 'app-route-map',
+  imports: [DurationPipe],
   templateUrl: './route-map.html',
   styleUrl: './route-map.scss',
 })
 export class RouteMap implements AfterViewInit {
+  @ViewChild('mapShell') private mapShell?: ElementRef<HTMLElement>;
   @ViewChild('mapContainer') private mapContainer?: ElementRef<HTMLDivElement>;
 
   readonly route = input<Route | null>(null);
@@ -50,7 +55,20 @@ export class RouteMap implements AfterViewInit {
   });
   protected readonly tileWarning = signal(false);
   protected readonly mapError = signal<string | null>(null);
+  protected readonly fullscreenAvailable = signal(false);
+  protected readonly isFullscreen = signal(false);
+  protected readonly fullscreenLabel = computed(() => {
+    if (this.isFullscreen()) {
+      return 'Exit full screen';
+    }
+    return 'Full screen';
+  });
+  protected readonly ride = inject(RideService);
+  protected readonly powerWatts = computed(() => this.ride.telemetry()?.powerWatts ?? 0);
+  protected readonly cadenceRpm = computed(() => this.ride.telemetry()?.cadenceRpm ?? 0);
+  protected readonly speedKph = computed(() => this.ride.telemetry()?.speedKph ?? 0);
 
+  private readonly document = inject(DOCUMENT);
   private readonly destroyRef = inject(DestroyRef);
   private readonly rendererReady = signal(false);
   private renderer: MapLibreRouteRenderer | null = null;
@@ -59,13 +77,19 @@ export class RouteMap implements AfterViewInit {
 
   constructor() {
     effect(() => this.renderRoute());
+    this.document.addEventListener('fullscreenchange', this.handleFullscreenChange);
     this.destroyRef.onDestroy(() => {
       this.destroyed = true;
+      this.document.removeEventListener('fullscreenchange', this.handleFullscreenChange);
       this.destroyMap();
     });
   }
 
   ngAfterViewInit(): void {
+    const shell = this.mapShell?.nativeElement;
+    this.fullscreenAvailable.set(
+      Boolean(shell && this.document.fullscreenEnabled && shell.requestFullscreen),
+    );
     const element = this.mapContainer?.nativeElement;
     if (!element) {
       return;
@@ -96,6 +120,27 @@ export class RouteMap implements AfterViewInit {
     }
     this.gradientColors.update((enabled) => !enabled);
   }
+
+  protected async toggleFullscreen(): Promise<void> {
+    const shell = this.mapShell?.nativeElement;
+    if (!shell || !this.fullscreenAvailable()) {
+      return;
+    }
+    try {
+      if (this.document.fullscreenElement === shell) {
+        await this.document.exitFullscreen();
+        return;
+      }
+      await shell.requestFullscreen();
+    } catch (error) {
+      console.warn('Route map fullscreen request failed.', error);
+    }
+  }
+
+  private readonly handleFullscreenChange = (): void => {
+    this.isFullscreen.set(this.document.fullscreenElement === this.mapShell?.nativeElement);
+    this.renderer?.resize();
+  };
 
   private async initializeRenderer(element: HTMLDivElement): Promise<void> {
     try {
